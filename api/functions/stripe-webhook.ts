@@ -42,7 +42,11 @@ export const handler = async (event: HandlerEvent): Promise<HandlerResponse> => 
     debug.error('Missing signature or webhook secret');
     return {
       statusCode: 400,
-      body: JSON.stringify({ error: 'Missing signature or webhook secret' })
+      body: JSON.stringify({ 
+        error: 'Missing signature or webhook secret',
+        headers: event.headers, // Temporarily include headers in error response
+        sig: sig || 'missing'
+      })
     };
   }
 
@@ -106,7 +110,11 @@ export const handler = async (event: HandlerEvent): Promise<HandlerResponse> => 
     
     return {
       statusCode: 400,
-      body: JSON.stringify({ error: errorMessage })
+      body: JSON.stringify({ 
+        error: errorMessage,
+        headers: event.headers, // Temporarily include headers in error response
+        sig: sig || 'missing'
+      })
     };
   }
 };
