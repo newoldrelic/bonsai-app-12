@@ -9,7 +9,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "clean": "rm -rf dist",
-    "build:functions": "npx tsc --project api/functions/tsconfig.json"
+    "build:functions": "npx tsc --project api/functions/tsconfig.json --verbose"
   },
   "dependencies": {
     "@netlify/functions": "^2.6.0",
