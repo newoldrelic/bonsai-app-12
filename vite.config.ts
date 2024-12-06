@@ -2,7 +2,8 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { resolve } from 'path';
 
-export default defineConfig({
+// https://vitejs.dev/config/
+export default defineConfig(({ mode }) => ({
   plugins: [react()],
   optimizeDeps: {
     exclude: ['lucide-react'],
@@ -22,14 +23,32 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    strictPort: true
+    strictPort: true,
+    host: true,
+    cors: true
+  },
+  preview: {
+    port: 5173,
+    strictPort: true,
+    host: true,
   },
   define: {
-    'process.env': {}
+    'process.env': mode === 'development' 
+      ? {
+          NODE_ENV: JSON.stringify('development'),
+          DEBUG_LEVELS: JSON.stringify(process.env.VITE_DEBUG_LEVELS || '4')
+        }
+      : {
+          NODE_ENV: JSON.stringify('production'),
+          DEBUG_LEVELS: JSON.stringify(process.env.VITE_DEBUG_LEVELS || '1')
+        }
   },
   resolve: {
     alias: {
       '@': resolve(__dirname, './src')
     }
+  },
+  esbuild: {
+    logOverride: { 'this-is-undefined-in-esm': 'silent' }
   }
-});
+}));

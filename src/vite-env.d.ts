@@ -30,7 +30,8 @@ declare module '@netlify/functions' {
   export interface HandlerResponse {
     statusCode: number;
     body?: string;
-    headers?: { [header: string]: string | undefined };
+    headers?: { [header: string]: string | string[] };
+    isBase64Encoded?: boolean;
   }
 
   export interface Context {
