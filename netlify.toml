@@ -22,7 +22,7 @@
   NODE_VERSION = "18"
   NODE_ENV = "production"
   CI = "true"
-  NPM_FLAGS = "--legacy-peer-deps"
+  NPM_FLAGS = "--legacy-peer-deps --include=dev"
 
 [dev]
   command = "npm run dev"
