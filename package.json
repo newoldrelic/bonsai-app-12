@@ -5,11 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build && npm run build:functions",
+    "build": "npx tsc && npx vite build && npm run build:functions",
     "lint": "eslint .",
     "preview": "vite preview",
     "clean": "rm -rf dist",
-    "build:functions": "tsc --project api/functions/tsconfig.json"
+    "build:functions": "npx tsc --project api/functions/tsconfig.json"
   },
   "dependencies": {
     "@netlify/functions": "^2.6.0",
