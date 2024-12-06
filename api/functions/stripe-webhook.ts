@@ -1,44 +1,43 @@
 import type { HandlerEvent, HandlerResponse } from '@netlify/functions';
 import Stripe from 'stripe';
 import { debug } from '../../src/utils/debug';
-import { doc, setDoc, getFirestore } from 'firebase/firestore';
-import { initializeApp } from 'firebase/app';
+import * as admin from 'firebase-admin';
 
-const firebaseConfig = {
-  apiKey: "AIzaSyDATJrKcVbQGPL-qaMzbG9ZJT1EeCDc9RQ",
-  authDomain: "bonsai-c0690.firebaseapp.com",
-  projectId: "bonsai-c0690",
-  storageBucket: "bonsai-c0690.firebasestorage.app",
-  messagingSenderId: "755508788438",
-  appId: "1:755508788438:web:80947149c2649f1f385d77",
-  measurementId: "G-MBVTEP2XRT"
-};
+// Initialize Firebase Admin
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: admin.credential.cert({
+      projectId: "bonsai-c0690",
+      clientEmail: "firebase-adminsdk-qqw8j@bonsai-c0690.iam.gserviceaccount.com",
+      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n')
+    }),
+    databaseURL: "https://bonsai-c0690.firebaseio.com"
+  });
+}
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+const db = admin.firestore();
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
- apiVersion: '2023-10-16'
+  apiVersion: '2023-10-16'
 });
 
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
 interface StripeMetadata {
- userEmail: string;
- giftEmail?: string;
- [key: string]: string | undefined;
+  userEmail: string;
+  giftEmail?: string;
+  [key: string]: string | undefined;
 }
 
 interface StripeCustomer extends Omit<Stripe.Customer, 'metadata'> {
- metadata: StripeMetadata;
+  metadata: StripeMetadata;
 }
 
 interface StripeEvent {
- type: string;
- data: {
-   object: Stripe.Checkout.Session | Stripe.Subscription;
- };
+  type: string;
+  data: {
+    object: Stripe.Checkout.Session | Stripe.Subscription;
+  };
 }
 
 async function updateFirestoreSubscription(
@@ -52,13 +51,13 @@ async function updateFirestoreSubscription(
     planId: subscription.items.data[0]?.price.id || 'unknown',
     currentPeriodEnd: subscription.current_period_end,
     cancelAtPeriodEnd: subscription.cancel_at_period_end,
-    updatedAt: Date.now()
+    updatedAt: admin.firestore.Timestamp.now()
   };
 
   debug.info('Updating Firestore subscription:', subscriptionData);
 
   try {
-    await setDoc(doc(db, 'subscriptions', userEmail), subscriptionData);
+    await db.collection('subscriptions').doc(userEmail).set(subscriptionData);
     debug.info('Firestore subscription updated successfully');
   } catch (error) {
     debug.error('Error updating Firestore subscription:', error);
