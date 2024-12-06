@@ -6,7 +6,6 @@
     { "path": "./api/functions/tsconfig.json" }
   ],
   "compilerOptions": {
-    "composite": true,
     "skipLibCheck": true,
     "strict": true,
     "target": "ES2020",
