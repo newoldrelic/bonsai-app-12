@@ -6,6 +6,8 @@
 [functions]
   node_bundler = "esbuild"
   external_node_modules = ["@netlify/functions"]
+  directory = "dist/api/functions"
+  included_files = ["*.js"]
 
 [[redirects]]
   from = "/api/functions/*"
