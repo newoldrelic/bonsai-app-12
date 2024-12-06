@@ -8,7 +8,7 @@
     "strict": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "outDir": "../../dist/functions",
+    "outDir": "../../dist/functions/api/functions",
     "rootDir": "../..",
     "allowJs": true,
     "resolveJsonModule": true,
