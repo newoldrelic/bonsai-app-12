@@ -18,69 +18,64 @@ interface SubscriptionState {
   refreshSubscription: () => Promise<void>;
 }
 
-export const useSubscriptionStore = create<SubscriptionState>()(
-  persist(
-    (set, get) => ({
-      subscription: null,
-      loading: false,
-      error: null,
-      checkoutSession: null,
+export const useSubscriptionStore = create<SubscriptionState>()((set, get) => ({
+  subscription: null,
+  loading: false,
+  error: null,
+  checkoutSession: null,
 
-      setSubscription: (subscription) => {
-        debug.info('Setting subscription:', subscription);
-        set({ subscription });
-      },
+  setSubscription: (subscription) => {
+    debug.info('Setting subscription:', subscription);
+    set({ subscription });
+  },
 
-      refreshSubscription: async () => {
-        const user = auth.currentUser;
-        if (!user?.email) return;
-
-        try {
-          const subscriptionRef = doc(db, 'subscriptions', user.email);
-          const docSnap = await getDoc(subscriptionRef);
-          
-          if (docSnap.exists()) {
-            const subscription = docSnap.data() as UserSubscription;
-            get().setSubscription(subscription);
-          } else {
-            get().setSubscription(null);
-          }
-        } catch (error) {
-          debug.error('Error refreshing subscription:', error);
-          get().setSubscription(null);
-        }
-      },
-
-      createCheckoutSession: async (priceId: string, userEmail: string, giftEmail?: string) => {
-        try {
-          set({ loading: true, error: null });
-          const checkoutUrl = await createCheckoutSession(priceId, userEmail, giftEmail);
-          window.location.href = checkoutUrl;
-        } catch (error: any) {
-          console.error('Error creating checkout session:', error);
-          set({ 
-            error: error.message || 'Failed to start checkout process',
-            loading: false 
-          });
-        }
-      },
-
-      getCurrentPlan: () => {
-        const { subscription } = get();
-        if (!subscription) return 'hobby';
-        return subscription.status === 'active' ? subscription.planId : 'hobby';
-      },
-
-      clearError: () => set({ error: null })
-    }),
-    {
-      name: 'subscription-storage',
-      partialize: (state) => ({
-        subscription: state.subscription
-      })
+  refreshSubscription: async () => {
+    const user = auth.currentUser;
+    if (!user?.email) {
+      set({ subscription: null });
+      return;
     }
-  )
-);
+
+    try {
+      set({ loading: true });
+      const subscriptionRef = doc(db, 'subscriptions', user.email);
+      const docSnap = await getDoc(subscriptionRef);
+      
+      if (docSnap.exists()) {
+        const subscription = docSnap.data() as UserSubscription;
+        set({ subscription, loading: false });
+      } else {
+        set({ subscription: null, loading: false });
+      }
+    } catch (error) {
+      debug.error('Error refreshing subscription:', error);
+      set({ subscription: null, loading: false, error: 'Failed to load subscription' });
+    }
+  },
+
+  createCheckoutSession: async (priceId: string, userEmail: string, giftEmail?: string) => {
+    try {
+      set({ loading: true, error: null });
+      const checkoutUrl = await createCheckoutSession(priceId, userEmail, giftEmail);
+      window.location.href = checkoutUrl;
+    } catch (error: any) {
+      console.error('Error creating checkout session:', error);
+      set({ 
+        error: error.message || 'Failed to start checkout process',
+        loading: false 
+      });
+    }
+  },
+
+  getCurrentPlan: () => {
+    const { subscription } = get();
+    if (!subscription) return 'hobby';
+    if (subscription.status !== 'active') return 'hobby';
+    return subscription.planId;
+  },
+
+  clearError: () => set({ error: null })
+}));
 
 // Set up subscription listener
 auth.onAuthStateChanged(async (user) => {
@@ -115,8 +110,9 @@ auth.onAuthStateChanged(async (user) => {
         }
       );
 
-      // Clean up listener on auth state change
-      return () => unsubscribe();
+      return () => {
+        unsubscribe();
+      };
     } catch (error) {
       debug.error('Error setting up subscription listener:', error);
       useSubscriptionStore.getState().setSubscription(null);
@@ -126,7 +122,12 @@ auth.onAuthStateChanged(async (user) => {
   }
 });
 
-// Add a manual refresh on page load
-window.addEventListener('load', () => {
-  useSubscriptionStore.getState().refreshSubscription();
-});
+// Initialize subscription state
+useSubscriptionStore.getState().refreshSubscription();
+
+// Refresh subscription on page focus
+if (typeof window !== 'undefined') {
+  window.addEventListener('focus', () => {
+    useSubscriptionStore.getState().refreshSubscription();
+  });
+}
