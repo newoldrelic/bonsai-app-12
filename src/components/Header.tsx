@@ -71,11 +71,25 @@ export function Header() {
 
                 {showUserMenu && (
                   <>
-                    <div className="absolute top-full right-0 mt-2 w-48 bg-white dark:bg-stone-800 rounded-lg shadow-xl py-2 z-50">
+                    <div className="absolute top-full right-0 mt-2 w-56 bg-white dark:bg-stone-800 rounded-lg shadow-xl py-2 z-50">
                       <div className="px-4 py-2 border-b border-stone-200 dark:border-stone-700">
                         <p className="text-sm text-stone-600 dark:text-stone-300 truncate">
                           {user.email}
                         </p>
+                        <div className="mt-2 flex items-center gap-2">
+                          <Crown className={`w-4 h-4 ${isSubscribed ? 'text-bonsai-terra' : 'text-stone-400'}`} />
+                          <span className={`text-sm font-medium ${isSubscribed ? 'text-bonsai-terra' : 'text-stone-500 dark:text-stone-400'}`}>
+                            {isSubscribed ? 'Premium Plan' : 'Free Plan'}
+                          </span>
+                          {!isSubscribed && (
+                            <button
+                              onClick={() => navigate('/pricing')}
+                              className="ml-auto text-xs text-bonsai-green hover:text-bonsai-moss transition-colors"
+                            >
+                              Upgrade
+                            </button>
+                          )}
+                        </div>
                       </div>
                       <button
                         onClick={handleLogout}
