@@ -32,20 +32,34 @@ export const handler = async (event: HandlerEvent): Promise<HandlerResponse> => 
   
   const sig = event.headers['stripe-signature'];
   
-  debug.info('Webhook Headers:', JSON.stringify(event.headers, null, 2));
-  debug.info('Stripe Signature:', sig);
-  debug.info('Endpoint Secret exists:', !!endpointSecret);
+  debug.info('Webhook request details:', {
+    method: event.httpMethod,
+    path: event.path,
+    headers: event.headers
+  });
+
+  debug.info('Environment check:', {
+    hasSecret: !!process.env.STRIPE_SECRET_KEY,
+    hasWebhookSecret: !!endpointSecret,
+    nodeEnv: process.env.NODE_ENV
+  });
 
   if (process.env.NODE_ENV === 'development') {
     debug.warn('Webhook signature check skipped in development mode');
   } else if (!sig || !endpointSecret) {
-    debug.error('Missing signature or webhook secret');
+    debug.error('Webhook validation failed:', {
+      hasSignature: !!sig,
+      hasEndpointSecret: !!endpointSecret
+    });
     return {
       statusCode: 400,
-      body: JSON.stringify({ 
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
         error: 'Missing signature or webhook secret',
-        headers: event.headers, // Temporarily include headers in error response
-        sig: sig || 'missing'
+        details: {
+          hasSignature: !!sig,
+          hasEndpointSecret: !!endpointSecret
+        }
       })
     };
   }
@@ -56,14 +70,34 @@ export const handler = async (event: HandlerEvent): Promise<HandlerResponse> => 
     if (process.env.NODE_ENV === 'development') {
       stripeEvent = JSON.parse(event.body || '');
     } else {
-      stripeEvent = stripe.webhooks.constructEvent(
-        event.body || '',
-        sig!,
-        endpointSecret!
-      ) as StripeEvent;
+      try {
+        stripeEvent = stripe.webhooks.constructEvent(
+          event.body || '',
+          sig!,
+          endpointSecret!
+        ) as StripeEvent;
+        debug.info('Webhook signature verified successfully');
+      } catch (err: any) {
+        debug.error('Webhook signature verification failed:', {
+          error: err.message,
+          type: err.type,
+          signature: sig?.substring(0, 20) + '...' // Log part of signature safely
+        });
+        return {
+          statusCode: 400,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            error: 'Webhook signature verification failed',
+            details: err.message
+          })
+        };
+      }
     }
 
-    debug.info('Processing webhook event:', stripeEvent.type);
+    debug.info('Processing webhook event:', {
+      type: stripeEvent.type,
+      objectType: stripeEvent.data.object.object
+    });
 
     switch (stripeEvent.type) {
       case 'checkout.session.completed': {
@@ -98,22 +132,22 @@ export const handler = async (event: HandlerEvent): Promise<HandlerResponse> => 
 
     return {
       statusCode: 200,
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ received: true })
     };
-  } catch (err: unknown) {
-    debug.error('Webhook error:', err);
-    
-    let errorMessage = 'Webhook error';
-    if (err instanceof Error) {
-      errorMessage = err.message;
-    }
+
+  } catch (err: any) {
+    debug.error('Webhook processing error:', {
+      message: err.message,
+      stack: err.stack
+    });
     
     return {
       statusCode: 400,
-      body: JSON.stringify({ 
-        error: errorMessage,
-        headers: event.headers, // Temporarily include headers in error response
-        sig: sig || 'missing'
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        error: 'Webhook processing failed',
+        details: err.message
       })
     };
   }
