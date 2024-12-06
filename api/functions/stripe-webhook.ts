@@ -32,14 +32,20 @@ export const handler = async (event: HandlerEvent): Promise<HandlerResponse> => 
   
   const sig = event.headers['stripe-signature'];
   
+  debug.info('Webhook Headers:', JSON.stringify(event.headers, null, 2));
+  debug.info('Stripe Signature:', sig);
+  debug.info('Endpoint Secret exists:', !!endpointSecret);
+
   if (process.env.NODE_ENV === 'development') {
     debug.warn('Webhook signature check skipped in development mode');
   } else if (!sig || !endpointSecret) {
+    debug.error('Missing signature or webhook secret');
     return {
       statusCode: 400,
       body: JSON.stringify({ error: 'Missing signature or webhook secret' })
     };
   }
+
   try {
     let stripeEvent: StripeEvent;
     
@@ -52,7 +58,9 @@ export const handler = async (event: HandlerEvent): Promise<HandlerResponse> => 
         endpointSecret!
       ) as StripeEvent;
     }
+
     debug.info('Processing webhook event:', stripeEvent.type);
+
     switch (stripeEvent.type) {
       case 'checkout.session.completed': {
         const session = stripeEvent.data.object as Stripe.Checkout.Session;
@@ -69,6 +77,7 @@ export const handler = async (event: HandlerEvent): Promise<HandlerResponse> => 
         debug.info('Subscription activated for:', metadata.userEmail);
         break;
       }
+
       case 'customer.subscription.updated':
       case 'customer.subscription.deleted': {
         const subscription = stripeEvent.data.object as Stripe.Subscription;
@@ -82,6 +91,7 @@ export const handler = async (event: HandlerEvent): Promise<HandlerResponse> => 
         break;
       }
     }
+
     return {
       statusCode: 200,
       body: JSON.stringify({ received: true })
