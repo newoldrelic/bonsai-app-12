@@ -15,6 +15,7 @@ interface SubscriptionState {
   getCurrentPlan: () => string;
   clearError: () => void;
   setSubscription: (subscription: UserSubscription | null) => void;
+  refreshSubscription: () => Promise<void>;
 }
 
 export const useSubscriptionStore = create<SubscriptionState>()(
@@ -28,6 +29,26 @@ export const useSubscriptionStore = create<SubscriptionState>()(
       setSubscription: (subscription) => {
         debug.info('Setting subscription:', subscription);
         set({ subscription });
+      },
+
+      refreshSubscription: async () => {
+        const user = auth.currentUser;
+        if (!user?.email) return;
+
+        try {
+          const subscriptionRef = doc(db, 'subscriptions', user.email);
+          const docSnap = await getDoc(subscriptionRef);
+          
+          if (docSnap.exists()) {
+            const subscription = docSnap.data() as UserSubscription;
+            get().setSubscription(subscription);
+          } else {
+            get().setSubscription(null);
+          }
+        } catch (error) {
+          debug.error('Error refreshing subscription:', error);
+          get().setSubscription(null);
+        }
       },
 
       createCheckoutSession: async (priceId: string, userEmail: string, giftEmail?: string) => {
@@ -72,6 +93,8 @@ auth.onAuthStateChanged(async (user) => {
       if (docSnap.exists()) {
         const subscription = docSnap.data() as UserSubscription;
         useSubscriptionStore.getState().setSubscription(subscription);
+      } else {
+        useSubscriptionStore.getState().setSubscription(null);
       }
 
       // Set up real-time listener
@@ -101,4 +124,9 @@ auth.onAuthStateChanged(async (user) => {
   } else {
     useSubscriptionStore.getState().setSubscription(null);
   }
+});
+
+// Add a manual refresh on page load
+window.addEventListener('load', () => {
+  useSubscriptionStore.getState().refreshSubscription();
 });
