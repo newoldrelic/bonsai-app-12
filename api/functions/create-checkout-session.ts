@@ -1,13 +1,23 @@
 import type { HandlerEvent, HandlerResponse } from '@netlify/functions';
 import Stripe from 'stripe';
+import { PRICING_TIERS } from '../../src/config/pricing';
 
-// Get environment variables directly from process.env
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
 const NODE_ENV = process.env.NODE_ENV || 'production';
 
 const stripe = new Stripe(STRIPE_SECRET_KEY || '', {
   apiVersion: '2023-10-16'
 });
+
+// Helper to determine if a price ID is for a gift
+const isGiftPrice = (priceId: string) => {
+  return [
+    PRICING_TIERS.GIFT_1MONTH,
+    PRICING_TIERS.GIFT_3MONTHS,
+    PRICING_TIERS.GIFT_6MONTHS,
+    PRICING_TIERS.GIFT_12MONTHS
+  ].includes(priceId);
+};
 
 export const handler = async (event: HandlerEvent): Promise<HandlerResponse> => {
   const headers = {
@@ -75,8 +85,10 @@ export const handler = async (event: HandlerEvent): Promise<HandlerResponse> => 
       };
     }
 
+    const isGift = isGiftPrice(priceId);
+
     const session = await stripe.checkout.sessions.create({
-      mode: 'subscription',
+      mode: isGift ? 'payment' : 'subscription',
       payment_method_types: ['card'],
       line_items: [
         {
@@ -90,7 +102,8 @@ export const handler = async (event: HandlerEvent): Promise<HandlerResponse> => 
       allow_promotion_codes: true,
       metadata: {
         userEmail,
-        giftEmail: giftEmail || ''
+        giftEmail: giftEmail || '',
+        isGift: isGift ? 'true' : 'false'
       }
     });
 
