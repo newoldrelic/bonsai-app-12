@@ -34,7 +34,7 @@ export function LandingPage() {
   };
 
   const navigateToGiftSection = () => {
-    navigate('/pricing#gift-options');
+    navigate('/pricing', { state: { scrollToGifts: true } });
   };
 
   return (
@@ -81,7 +81,6 @@ export function LandingPage() {
                 </div>
               )}
 
-              {/* Rest of the component remains unchanged */}
               <h1 className="text-white dark:text-white mt-4">
                 <span className="block text-6xl md:text-7xl lg:text-8xl font-bold leading-none">BONSAI</span>
                 <span className="block text-3xl md:text-4xl lg:text-5xl font-medium mt-1">FOR BEGINNERS</span>

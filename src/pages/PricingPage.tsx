@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Check, AlertCircle, Crown, Gift } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
@@ -17,6 +17,7 @@ export function PricingPage() {
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [selectedPriceId, setSelectedPriceId] = useState<string | null>(null);
   const [isGift, setIsGift] = useState(false);
+  const giftSectionRef = useRef<HTMLDivElement>(null);
 
   // Map Stripe price IDs to our display plan IDs
   const currentDisplayPlan = (() => {
@@ -30,6 +31,15 @@ export function PricingPage() {
         return 'hobby';
     }
   })();
+
+  useEffect(() => {
+    const state = location.state as { scrollToGifts?: boolean };
+    if (state?.scrollToGifts && giftSectionRef.current) {
+      giftSectionRef.current.scrollIntoView({ behavior: 'smooth' });
+      // Clear the state
+      navigate(location.pathname, { replace: true });
+    }
+  }, [location, navigate]);
 
   const handleSubscribe = async (priceId: string, isGiftPurchase = false) => {
     if (!user) {
@@ -191,7 +201,7 @@ export function PricingPage() {
 
         {/* Gift Options */}
         {PRICING_CONFIG.gifts.enabled && (
-          <div className="mt-16" id="gift-options">
+          <div className="mt-16" id="gift-options" ref={giftSectionRef}>
             <h2 className="text-2xl font-bold text-center text-bonsai-bark dark:text-white mb-8">
               Gift Premium Access
             </h2>
