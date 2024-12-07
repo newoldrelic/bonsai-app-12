@@ -14,10 +14,22 @@ export function PricingPage() {
   const { user } = useAuthStore();
   const { createCheckoutSession, getCurrentPlan, loading, error, clearError } = useSubscriptionStore();
   const { current: currency } = useCurrencyStore();
-  const currentPlan = getCurrentPlan();
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [selectedPriceId, setSelectedPriceId] = useState<string | null>(null);
   const [isGift, setIsGift] = useState(false);
+
+  // Map Stripe price IDs to our display plan IDs
+  const currentDisplayPlan = (() => {
+    const stripePlanId = getCurrentPlan();
+    switch (stripePlanId) {
+      case 'price_1QRxxTFwFmksLDAYCdCcGTRi':
+        return 'premium-monthly';
+      case 'price_1QRy3FFwFmksLDAYfqbgjBBV':
+        return 'premium-annual';
+      default:
+        return 'hobby';
+    }
+  })();
 
   const handleSubscribe = async (priceId: string, isGiftPurchase = false) => {
     if (!user) {
@@ -36,7 +48,7 @@ export function PricingPage() {
   };
 
   const getPlanLabel = (planId: string) => {
-    if (currentPlan === planId) {
+    if (planId === currentDisplayPlan) {
       return (
         <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-bonsai-green text-white px-4 py-1 rounded-full text-sm font-medium">
           Current Plan
@@ -82,7 +94,7 @@ export function PricingPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-7xl mx-auto">
           {/* Hobby Plan */}
-          <div className={`card p-8 relative ${currentPlan === 'hobby' ? 'ring-2 ring-bonsai-green' : ''}`}>
+          <div className={`card p-8 relative ${currentDisplayPlan === 'hobby' ? 'ring-2 ring-bonsai-green' : ''}`}>
             {getPlanLabel('hobby')}
             <h3 className="text-2xl font-bold text-bonsai-bark dark:text-white mb-2">
               Hobby
@@ -110,7 +122,7 @@ export function PricingPage() {
           </div>
 
           {/* Premium Monthly */}
-          <div className={`card p-8 relative ${currentPlan === 'premium-monthly' ? 'ring-2 ring-bonsai-green' : ''}`}>
+          <div className={`card p-8 relative ${currentDisplayPlan === 'premium-monthly' ? 'ring-2 ring-bonsai-green' : ''}`}>
             {getPlanLabel('premium-monthly')}
             <h3 className="text-2xl font-bold text-bonsai-bark dark:text-white mb-2">
               Premium Monthly
@@ -134,15 +146,15 @@ export function PricingPage() {
             </ul>
             <button
               onClick={() => handleSubscribe(PRICING_TIERS.PREMIUM_MONTHLY)}
-              disabled={loading || currentPlan === 'premium-monthly'}
+              disabled={loading || currentDisplayPlan === 'premium-monthly'}
               className="w-full py-3 px-4 rounded-lg font-medium bg-bonsai-green text-white hover:bg-bonsai-moss transition-colors disabled:opacity-50"
             >
-              {loading ? 'Processing...' : currentPlan === 'premium-monthly' ? 'Current Plan' : 'Subscribe Monthly'}
+              {loading ? 'Processing...' : 'Subscribe Monthly'}
             </button>
           </div>
 
           {/* Premium Annual */}
-          <div className={`card p-8 relative ${currentPlan === 'premium-annual' ? 'ring-2 ring-bonsai-green' : ''}`}>
+          <div className={`card p-8 relative ${currentDisplayPlan === 'premium-annual' ? 'ring-2 ring-bonsai-green' : ''}`}>
             {getPlanLabel('premium-annual')}
             <h3 className="text-2xl font-bold text-bonsai-bark dark:text-white mb-2">
               Premium Annual
@@ -169,10 +181,10 @@ export function PricingPage() {
             </ul>
             <button
               onClick={() => handleSubscribe(PRICING_TIERS.PREMIUM_ANNUAL)}
-              disabled={loading || currentPlan === 'premium-annual'}
+              disabled={loading || currentDisplayPlan === 'premium-annual'}
               className="w-full py-3 px-4 rounded-lg font-medium bg-bonsai-green text-white hover:bg-bonsai-moss transition-colors disabled:opacity-50"
             >
-              {loading ? 'Processing...' : currentPlan === 'premium-annual' ? 'Current Plan' : 'Subscribe Annually'}
+              {loading ? 'Processing...' : 'Subscribe Annually'}
             </button>
           </div>
         </div>
