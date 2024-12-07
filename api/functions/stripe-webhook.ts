@@ -36,16 +36,21 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
 async function updateFirestoreSubscription(subscription: Stripe.Subscription) {
-  const customer = await stripe.customers.retrieve(subscription.customer as string);
-  const userEmail = customer.email;
+  const customerResponse = await stripe.customers.retrieve(subscription.customer as string);
   
-  if (!userEmail) {
+  // Check if customer is deleted
+  if (customerResponse.deleted) {
+    throw new Error('Customer has been deleted');
+  }
+
+  const customer = customerResponse as Stripe.Customer;
+  if (!customer.email) {
     throw new Error('No email found for customer');
   }
 
   const subscriptionData = {
     id: subscription.id,
-    userEmail,
+    userEmail: customer.email,
     status: subscription.status,
     planId: subscription.items.data[0].price.id,
     currentPeriodEnd: subscription.current_period_end,
@@ -53,9 +58,9 @@ async function updateFirestoreSubscription(subscription: Stripe.Subscription) {
     updatedAt: admin.firestore.FieldValue.serverTimestamp()
   };
 
-  const subscriptionRef = db.doc(`subscriptions/${userEmail}`);
+  const subscriptionRef = db.doc(`subscriptions/${customer.email}`);
   await subscriptionRef.set(subscriptionData, { merge: true });
-  debug.info(`Subscription ${subscription.status} for: ${userEmail}`);
+  debug.info(`Subscription ${subscription.status} for: ${customer.email}`);
 }
 
 export const handler = async (event: HandlerEvent): Promise<HandlerResponse> => {
