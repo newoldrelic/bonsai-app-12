@@ -1,5 +1,4 @@
-import { Leaf, TreeDeciduous, Bell, Camera, Gift, CreditCard, Bot, Stethoscope, Crown } from 'lucide-react';
-import type { IconType } from 'lucide-react';
+import { IconType } from 'lucide-react';
 
 export interface Feature {
   text: string;
@@ -87,18 +86,18 @@ export const PRICING_CONFIG: PricingConfig = {
 };
 
 export const HOBBY_FEATURES: Feature[] = [
-  { text: 'Store up to 3 bonsai trees', icon: TreeDeciduous },
-  { text: '3 free species identifications', icon: Camera },
-  { text: 'Style guide access', icon: TreeDeciduous },
-  { text: 'Basic maintenance tracking', icon: Bell },
-  { text: 'Care reminders', icon: Bell }
+  { text: 'Store up to 3 bonsai trees', icon: 'TreeDeciduous' as unknown as IconType },
+  { text: '3 free species identifications', icon: 'Camera' as unknown as IconType },
+  { text: 'Style guide access', icon: 'TreeDeciduous' as unknown as IconType },
+  { text: 'Basic maintenance tracking', icon: 'Bell' as unknown as IconType },
+  { text: 'Care reminders', icon: 'Bell' as unknown as IconType }
 ];
 
 export const PREMIUM_FEATURES: Feature[] = [
-  { text: 'Everything in Hobby, plus:', icon: Crown },
-  { text: 'Store unlimited bonsai trees', icon: TreeDeciduous, premium: true },
-  { text: 'Unlimited species identification', icon: Camera, premium: true },
-  { text: 'Advanced health diagnosis', icon: Camera, premium: true },
-  { text: 'Expert coaching access', icon: Stethoscope, premium: true },
-  { text: 'Priority support', icon: Bot, premium: true }
+  { text: 'Everything in Hobby, plus:', icon: 'Crown' as unknown as IconType },
+  { text: 'Store unlimited bonsai trees', icon: 'TreeDeciduous' as unknown as IconType, premium: true },
+  { text: 'Unlimited species identification', icon: 'Camera' as unknown as IconType, premium: true },
+  { text: 'Advanced health diagnosis', icon: 'Camera' as unknown as IconType, premium: true },
+  { text: 'Expert coaching access', icon: 'Stethoscope' as unknown as IconType, premium: true },
+  { text: 'Priority support', icon: 'Bot' as unknown as IconType, premium: true }
 ];

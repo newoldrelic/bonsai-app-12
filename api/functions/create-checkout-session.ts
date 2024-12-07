@@ -1,6 +1,5 @@
 import type { HandlerEvent, HandlerResponse } from '@netlify/functions';
 import Stripe from 'stripe';
-import { PRICING_TIERS } from '../../src/config/pricing';
 
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
 const NODE_ENV = process.env.NODE_ENV || 'production';
@@ -10,13 +9,8 @@ const stripe = new Stripe(STRIPE_SECRET_KEY || '', {
 });
 
 // Helper to determine if a price ID is for a gift
-const isGiftPrice = (priceId: string) => {
-  return [
-    PRICING_TIERS.GIFT_1MONTH,
-    PRICING_TIERS.GIFT_3MONTHS,
-    PRICING_TIERS.GIFT_6MONTHS,
-    PRICING_TIERS.GIFT_12MONTHS
-  ].includes(priceId);
+const isGiftPrice = (priceId: string): boolean => {
+  return priceId.startsWith('price_1QSH') || priceId.startsWith('price_1QSI');
 };
 
 export const handler = async (event: HandlerEvent): Promise<HandlerResponse> => {
