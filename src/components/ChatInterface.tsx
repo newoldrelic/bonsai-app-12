@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Loader2 } from 'lucide-react';
 import { ChatMessage } from './ChatMessage';
+import { auth } from '../config/firebase';
 
 interface Message {
   content: string;
@@ -11,9 +12,16 @@ interface ChatInterfaceProps {
   onSendMessage: (message: string) => Promise<string>;
 }
 
+function getFirstName(email: string): string {
+  // Extract name part before @ symbol and capitalize first letter
+  const namePart = email.split('@')[0];
+  // Convert potential.username.123 into "Potential"
+  return namePart.split(/[._]/)[0].charAt(0).toUpperCase() + namePart.split(/[._]/)[0].slice(1);
+}
+
 export function ChatInterface({ onSendMessage }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([{
-    content: "Hello! I'm Ken Nakamura, your bonsai expert. How can I help you today?",
+    content: `Hello ${getFirstName(auth.currentUser?.email || '')}! I'm Ken Nakamura, your bonsai expert. How can I help you today?`,
     isUser: false
   }]);
   const [input, setInput] = useState('');
