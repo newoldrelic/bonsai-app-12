@@ -1,15 +1,55 @@
-import React, { useState } from 'react';
-import { Bot, MessageCircle, Crown, ArrowRight } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Bot, MessageCircle, Crown, ArrowRight, Phone } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useSubscriptionStore } from '../store/subscriptionStore';
 import { ChatInterface } from '../components/ChatInterface';
 import { AI_PROMPTS } from '../config/ai-prompts';
+
+declare global {
+  interface Window {
+    PlayAI?: {
+      open: (id: string) => void;
+    };
+  }
+}
 
 export function ExpertCoachingPage() {
   const navigate = useNavigate();
   const { getCurrentPlan } = useSubscriptionStore();
   const currentPlan = getCurrentPlan();
   const isSubscribed = currentPlan !== 'hobby';
+  const [activeTab, setActiveTab] = useState<'chat' | 'voice'>('chat');
+
+  useEffect(() => {
+    if (activeTab === 'voice') {
+      // Load PlayAI script
+      const script = document.createElement('script');
+      script.src = 'https://unpkg.com/@play-ai/web-embed';
+      script.async = true;
+      script.onload = () => {
+        // Initialize PlayAI after script loads
+        const initScript = document.createElement('script');
+        initScript.textContent = `
+          window.addEventListener('load', function() {
+            if (window.PlayAI) {
+              window.PlayAI.open('AVRe8N5e2Qj-EgOD8NeaC');
+            }
+          });
+        `;
+        document.body.appendChild(initScript);
+      };
+      document.body.appendChild(script);
+
+      // Cleanup
+      return () => {
+        document.body.removeChild(script);
+        const initScript = document.querySelector('script[data-playai-init]');
+        if (initScript) {
+          document.body.removeChild(initScript);
+        }
+      };
+    }
+  }, [activeTab]);
 
   const handleSendMessage = async (message: string) => {
     const response = await fetch('/.netlify/functions/chat', {
@@ -41,7 +81,7 @@ export function ExpertCoachingPage() {
               <div>
                 <p className="text-bonsai-terra font-medium">Premium Feature</p>
                 <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
-                  Upgrade to Premium to access AI-powered expert coaching through chat.
+                  Upgrade to Premium to access AI-powered expert coaching through chat and voice.
                 </p>
                 <button
                   onClick={() => navigate('/pricing')}
@@ -67,32 +107,83 @@ export function ExpertCoachingPage() {
             <h1 className="text-3xl font-bold text-bonsai-bark dark:text-white">AI Expert Coaching</h1>
           </div>
           <p className="text-gray-600 dark:text-gray-300">
-            Chat with Ken Nakamura, your AI bonsai expert, for personalized guidance and advice.
+            Get expert guidance through chat or voice interaction with Ken Nakamura, your AI bonsai expert.
           </p>
         </div>
 
-        <ChatInterface onSendMessage={handleSendMessage} />
+        <div className="mb-6">
+          <div className="flex space-x-4 justify-center">
+            <button
+              onClick={() => setActiveTab('chat')}
+              className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
+                activeTab === 'chat'
+                  ? 'bg-bonsai-green text-white'
+                  : 'bg-stone-100 dark:bg-stone-700 text-stone-600 dark:text-stone-300'
+              }`}
+            >
+              <MessageCircle className="w-5 h-5" />
+              <span>Chat</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('voice')}
+              className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
+                activeTab === 'voice'
+                  ? 'bg-bonsai-green text-white'
+                  : 'bg-stone-100 dark:bg-stone-700 text-stone-600 dark:text-stone-300'
+              }`}
+            >
+              <Phone className="w-5 h-5" />
+              <span>Voice</span>
+            </button>
+          </div>
+        </div>
+
+        {activeTab === 'chat' ? (
+          <ChatInterface onSendMessage={handleSendMessage} />
+        ) : (
+          <div className="bg-white dark:bg-stone-800 rounded-lg shadow-lg p-8 text-center min-h-[500px] flex items-center justify-center">
+            <div className="text-stone-600 dark:text-stone-300">
+              Loading voice interface...
+            </div>
+          </div>
+        )}
 
         <div className="mt-8 card p-6">
           <h2 className="text-xl font-semibold text-bonsai-bark dark:text-white mb-4">About Your Expert</h2>
           <div className="prose prose-stone dark:prose-invert max-w-none">
-            <p>
-              Ken Nakamura is an AI bonsai expert trained on decades of bonsai knowledge and experience. 
-              He can help you with:
+            <p className="text-sm">
+              Ken Nakamura is an AI bonsai expert trained on decades of bonsai knowledge. He provides guidance on:
             </p>
-            <ul>
-              <li>Watering and soil moisture management</li>
-              <li>Pruning and shaping techniques</li>
-              <li>Wiring methods and timing</li>
-              <li>Seasonal care requirements</li>
-              <li>Disease and pest identification</li>
-              <li>Tool selection and proper use</li>
-            </ul>
-            <p className="text-sm text-stone-500 dark:text-stone-400">
-              Note: While Ken provides expert guidance based on established bonsai principles, 
-              always use your judgment and consider consulting local experts for critical decisions 
-              about your trees.
-            </p>
+            <div className="grid grid-cols-2 gap-4 mt-2 text-sm">
+              <ul className="space-y-1">
+                <li className="flex items-center space-x-2">
+                  <span className="w-1.5 h-1.5 bg-bonsai-green rounded-full"></span>
+                  <span>Watering techniques</span>
+                </li>
+                <li className="flex items-center space-x-2">
+                  <span className="w-1.5 h-1.5 bg-bonsai-green rounded-full"></span>
+                  <span>Pruning methods</span>
+                </li>
+                <li className="flex items-center space-x-2">
+                  <span className="w-1.5 h-1.5 bg-bonsai-green rounded-full"></span>
+                  <span>Wiring guidance</span>
+                </li>
+              </ul>
+              <ul className="space-y-1">
+                <li className="flex items-center space-x-2">
+                  <span className="w-1.5 h-1.5 bg-bonsai-green rounded-full"></span>
+                  <span>Seasonal care</span>
+                </li>
+                <li className="flex items-center space-x-2">
+                  <span className="w-1.5 h-1.5 bg-bonsai-green rounded-full"></span>
+                  <span>Disease control</span>
+                </li>
+                <li className="flex items-center space-x-2">
+                  <span className="w-1.5 h-1.5 bg-bonsai-green rounded-full"></span>
+                  <span>Tool selection</span>
+                </li>
+              </ul>
+            </div>
           </div>
         </div>
       </div>
