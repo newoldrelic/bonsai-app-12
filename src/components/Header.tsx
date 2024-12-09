@@ -1,4 +1,4 @@
-import { Menu as MenuIcon, TreeDeciduous, LogOut, Crown, Home, CreditCard } from 'lucide-react';
+import { Menu as MenuIcon, TreeDeciduous, LogOut, Crown, Home, CreditCard, LogIn } from 'lucide-react';
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { ThemeToggle } from './ThemeToggle';
@@ -10,10 +10,10 @@ export function Header() {
   const [showMenu, setShowMenu] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const navigate = useNavigate();
-  const { user, logout } = useAuthStore();
+  const { user, logout, signInWithGoogle } = useAuthStore();
   const { getCurrentPlan } = useSubscriptionStore();
   const currentPlan = getCurrentPlan();
-  const isSubscribed = currentPlan.id !== 'hobby';
+  const isSubscribed = currentPlan !== 'hobby';
 
   const menuItems = [
     { id: 'home', label: 'Home', path: '/', icon: Home },
@@ -50,7 +50,7 @@ export function Header() {
           </Link>
           
           <div className="flex items-center space-x-4">
-            {user && (
+            {user ? (
               <div className="relative">
                 <button
                   onClick={() => setShowUserMenu(!showUserMenu)}
@@ -106,6 +106,14 @@ export function Header() {
                   </>
                 )}
               </div>
+            ) : (
+              <button
+                onClick={signInWithGoogle}
+                className="flex items-center space-x-2 px-4 py-2 bg-bonsai-green hover:bg-bonsai-moss text-white rounded-lg transition-colors"
+              >
+                <LogIn className="w-4 h-4" />
+                <span>Sign In</span>
+              </button>
             )}
             <ThemeToggle />
             <button 
