@@ -49,7 +49,7 @@ export function Header() {
             </div>
           </Link>
           
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2 sm:space-x-4">
             {user ? (
               <div className="relative">
                 <button
@@ -71,7 +71,7 @@ export function Header() {
 
                 {showUserMenu && (
                   <>
-                    <div className="absolute top-full right-0 mt-2 w-56 bg-white dark:bg-stone-800 rounded-lg shadow-xl py-2 z-50">
+                    <div className="absolute top-full right-0 mt-2 w-48 sm:w-56 bg-white dark:bg-stone-800 rounded-lg shadow-xl py-2 z-50">
                       <div className="px-4 py-2 border-b border-stone-200 dark:border-stone-700">
                         <p className="text-sm text-stone-600 dark:text-stone-300 truncate">
                           {user.email}
@@ -109,7 +109,7 @@ export function Header() {
             ) : (
               <button
                 onClick={signInWithGoogle}
-                className="flex items-center space-x-2 px-4 py-2 bg-bonsai-green hover:bg-bonsai-moss text-white rounded-lg transition-colors"
+                className="flex items-center space-x-1 sm:space-x-2 px-2 sm:px-4 py-1.5 sm:py-2 bg-bonsai-green hover:bg-bonsai-moss text-white rounded-lg transition-colors text-sm sm:text-base"
               >
                 <LogIn className="w-4 h-4" />
                 <span>Sign In</span>
