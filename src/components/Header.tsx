@@ -49,21 +49,21 @@ export function Header() {
             </div>
           </Link>
           
-          <div className="flex items-center space-x-2 sm:space-x-4">
+          <div className="flex items-center space-x-1.5 sm:space-x-4">
             {user ? (
               <div className="relative">
                 <button
                   onClick={() => setShowUserMenu(!showUserMenu)}
-                  className="w-8 h-8 rounded-full bg-bonsai-green text-white flex items-center justify-center hover:bg-bonsai-moss transition-colors"
+                  className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-bonsai-green text-white flex items-center justify-center hover:bg-bonsai-moss transition-colors"
                 >
                   {user.photoURL ? (
                     <img 
                       src={user.photoURL} 
                       alt={user.email || ''} 
-                      className="w-8 h-8 rounded-full"
+                      className="w-7 h-7 sm:w-8 sm:h-8 rounded-full"
                     />
                   ) : (
-                    <span className="text-sm font-medium">
+                    <span className="text-xs sm:text-sm font-medium">
                       {getInitials(user.email || '')}
                     </span>
                   )}
@@ -71,7 +71,7 @@ export function Header() {
 
                 {showUserMenu && (
                   <>
-                    <div className="absolute top-full right-0 mt-2 w-48 sm:w-56 bg-white dark:bg-stone-800 rounded-lg shadow-xl py-2 z-50">
+                    <div className="absolute top-full right-0 mt-2 w-44 sm:w-56 bg-white dark:bg-stone-800 rounded-lg shadow-xl py-2 z-50">
                       <div className="px-4 py-2 border-b border-stone-200 dark:border-stone-700">
                         <p className="text-sm text-stone-600 dark:text-stone-300 truncate">
                           {user.email}
@@ -109,25 +109,25 @@ export function Header() {
             ) : (
               <button
                 onClick={signInWithGoogle}
-                className="flex items-center space-x-1 sm:space-x-2 px-2 sm:px-4 py-1.5 sm:py-2 bg-bonsai-green hover:bg-bonsai-moss text-white rounded-lg transition-colors text-sm sm:text-base"
+                className="flex items-center space-x-1 px-2 py-1.5 sm:px-4 sm:py-2 bg-bonsai-green hover:bg-bonsai-moss text-white rounded-lg transition-colors text-xs sm:text-base"
               >
-                <LogIn className="w-4 h-4" />
+                <LogIn className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 <span>Sign In</span>
               </button>
             )}
             <ThemeToggle />
             <button 
               onClick={() => setShowMenu(!showMenu)}
-              className="p-2 hover:bg-bonsai-bark/20 dark:hover:bg-stone-800 rounded-full transition-colors"
+              className="p-1.5 sm:p-2 hover:bg-bonsai-bark/20 dark:hover:bg-stone-800 rounded-full transition-colors"
             >
-              <MenuIcon className="h-6 w-6" />
+              <MenuIcon className="h-5 w-5 sm:h-6 sm:w-6" />
             </button>
           </div>
         </div>
       </div>
 
       {showMenu && (
-        <div className="absolute top-full right-4 w-72 bg-white dark:bg-stone-800 rounded-lg shadow-xl py-2 z-50">
+        <div className="absolute top-full right-4 w-64 sm:w-72 bg-white dark:bg-stone-800 rounded-lg shadow-xl py-2 z-50">
           {menuItems.map((item) => (
             <button
               key={item.id}
