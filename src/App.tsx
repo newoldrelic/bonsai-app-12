@@ -17,6 +17,7 @@ import { SpeciesIdentifierPage } from './pages/SpeciesIdentifierPage';
 import { HealthAnalyticsPage } from './pages/HealthAnalyticsPage';
 import { CareGuidePage } from './pages/CareGuidePage';
 import { ExpertCoachingPage } from './pages/ExpertCoachingPage';
+import { VoiceChatPage } from './pages/VoiceChatPage';
 import { logAnalyticsEvent } from './config/firebase';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -126,6 +127,11 @@ export default function App() {
           <Route path="/expert-coaching" element={
             <PremiumRoute>
               <ExpertCoachingPage />
+            </PremiumRoute>
+          } />
+          <Route path="/voice-chat" element={
+            <PremiumRoute>
+              <VoiceChatPage />
             </PremiumRoute>
           } />
         </Routes>
