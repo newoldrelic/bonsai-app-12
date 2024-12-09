@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Crown, Check, ArrowRight } from 'lucide-react';
+import { Crown, Check, ArrowRight, Leaf, Stethoscope, Book, MessageCircle } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useSubscriptionStore } from '../store/subscriptionStore';
 
@@ -49,7 +49,7 @@ export function SubscriptionSuccessPage() {
               </div>
             </div>
 
-            <div className="space-y-3">
+            <div className="grid gap-3">
               <button
                 onClick={() => navigate('/dashboard')}
                 className="w-full bg-bonsai-green text-white px-6 py-3 rounded-lg hover:bg-bonsai-moss transition-colors flex items-center justify-center space-x-2 group"
@@ -58,12 +58,39 @@ export function SubscriptionSuccessPage() {
                 <ArrowRight className="w-5 h-5 transform group-hover:translate-x-1 transition-transform" />
               </button>
               
-              <button
-                onClick={() => navigate('/species-identifier')}
-                className="w-full bg-stone-100 dark:bg-stone-700 text-stone-600 dark:text-stone-300 px-6 py-3 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-600 transition-colors"
-              >
-                Try Species Identifier
-              </button>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => navigate('/species-identifier')}
+                  className="flex items-center justify-center space-x-2 px-4 py-3 bg-stone-100 dark:bg-stone-700 text-stone-600 dark:text-stone-300 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-600 transition-colors"
+                >
+                  <Leaf className="w-5 h-5" />
+                  <span>Species Identifier</span>
+                </button>
+
+                <button
+                  onClick={() => navigate('/health-analytics')}
+                  className="flex items-center justify-center space-x-2 px-4 py-3 bg-stone-100 dark:bg-stone-700 text-stone-600 dark:text-stone-300 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-600 transition-colors"
+                >
+                  <Stethoscope className="w-5 h-5" />
+                  <span>Health Analytics</span>
+                </button>
+
+                <button
+                  onClick={() => navigate('/care-guide')}
+                  className="flex items-center justify-center space-x-2 px-4 py-3 bg-stone-100 dark:bg-stone-700 text-stone-600 dark:text-stone-300 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-600 transition-colors"
+                >
+                  <Book className="w-5 h-5" />
+                  <span>Care Guide</span>
+                </button>
+
+                <button
+                  onClick={() => navigate('/expert-coaching')}
+                  className="flex items-center justify-center space-x-2 px-4 py-3 bg-stone-100 dark:bg-stone-700 text-stone-600 dark:text-stone-300 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-600 transition-colors"
+                >
+                  <MessageCircle className="w-5 h-5" />
+                  <span>Expert Coaching</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
