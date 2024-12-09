@@ -12,16 +12,19 @@ interface ChatInterfaceProps {
   onSendMessage: (message: string) => Promise<string>;
 }
 
-function getFirstName(email: string): string {
-  // Extract name part before @ symbol and capitalize first letter
+function getFirstName(user: any): string {
+  if (user?.displayName) {
+    return user.displayName.split(' ')[0];
+  }
+  // Fallback to email parsing if no display name
+  const email = user?.email || '';
   const namePart = email.split('@')[0];
-  // Convert potential.username.123 into "Potential"
   return namePart.split(/[._]/)[0].charAt(0).toUpperCase() + namePart.split(/[._]/)[0].slice(1);
 }
 
 export function ChatInterface({ onSendMessage }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([{
-    content: `Hello ${getFirstName(auth.currentUser?.email || '')}! I'm Ken Nakamura, your bonsai expert. How can I help you today?`,
+    content: `Hello ${getFirstName(auth.currentUser)}! I'm Ken Nakamura, your bonsai expert. How can I help you today?`,
     isUser: false
   }]);
   const [input, setInput] = useState('');
