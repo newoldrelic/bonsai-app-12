@@ -19,37 +19,34 @@ export function ExpertCoachingPage() {
   const currentPlan = getCurrentPlan();
   const isSubscribed = currentPlan !== 'hobby';
   const [activeTab, setActiveTab] = useState<'chat' | 'voice'>('chat');
+  const [voiceScriptLoaded, setVoiceScriptLoaded] = useState(false);
 
   useEffect(() => {
-    if (activeTab === 'voice') {
+    if (activeTab === 'voice' && !voiceScriptLoaded) {
+      // Remove any existing PlayAI scripts
+      const existingScripts = document.querySelectorAll('script[src*="play-ai"]');
+      existingScripts.forEach(script => script.remove());
+
       // Load PlayAI script
       const script = document.createElement('script');
       script.src = 'https://unpkg.com/@play-ai/web-embed';
       script.async = true;
+      
       script.onload = () => {
-        // Initialize PlayAI after script loads
-        const initScript = document.createElement('script');
-        initScript.textContent = `
-          window.addEventListener('load', function() {
-            if (window.PlayAI) {
-              window.PlayAI.open('AVRe8N5e2Qj-EgOD8NeaC');
-            }
-          });
-        `;
-        document.body.appendChild(initScript);
-      };
-      document.body.appendChild(script);
-
-      // Cleanup
-      return () => {
-        document.body.removeChild(script);
-        const initScript = document.querySelector('script[data-playai-init]');
-        if (initScript) {
-          document.body.removeChild(initScript);
+        setVoiceScriptLoaded(true);
+        if (window.PlayAI) {
+          window.PlayAI.open('AVRe8N5e2Qj-EgOD8NeaC');
         }
       };
+
+      document.body.appendChild(script);
+
+      return () => {
+        script.remove();
+        setVoiceScriptLoaded(false);
+      };
     }
-  }, [activeTab]);
+  }, [activeTab, voiceScriptLoaded]);
 
   const handleSendMessage = async (message: string) => {
     const response = await fetch('/.netlify/functions/chat', {
@@ -143,7 +140,7 @@ export function ExpertCoachingPage() {
         ) : (
           <div className="bg-white dark:bg-stone-800 rounded-lg shadow-lg p-8 text-center min-h-[500px] flex items-center justify-center">
             <div className="text-stone-600 dark:text-stone-300">
-              Loading voice interface...
+              {!voiceScriptLoaded ? 'Loading voice interface...' : 'Voice interface ready'}
             </div>
           </div>
         )}
