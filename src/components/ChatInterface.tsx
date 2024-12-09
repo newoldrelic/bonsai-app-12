@@ -93,22 +93,22 @@ export function ChatInterface({ onSendMessage }: ChatInterfaceProps) {
         onSubmit={handleSubmit} 
         className="flex-shrink-0 p-4 border-t dark:border-stone-700 bg-white dark:bg-stone-800"
       >
-        <div className="flex items-center gap-2">
+        <div className="relative flex w-full">
           <input
             ref={inputRef}
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Ask about bonsai care..."
-            className="flex-1 px-4 py-2 bg-stone-100 dark:bg-stone-700 border border-stone-200 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-bonsai-green focus:border-bonsai-green"
+            className="w-full pr-12 pl-4 py-2 bg-stone-100 dark:bg-stone-700 border border-stone-200 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-bonsai-green focus:border-bonsai-green"
             disabled={isLoading}
           />
           <button
             type="submit"
             disabled={isLoading || !input.trim()}
-            className="flex-shrink-0 w-10 h-10 flex items-center justify-center bg-bonsai-green text-white rounded-lg hover:bg-bonsai-moss transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="absolute right-1 top-1/2 -translate-y-1/2 w-10 h-8 flex items-center justify-center bg-bonsai-green text-white rounded-lg hover:bg-bonsai-moss transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Send className="w-5 h-5" />
+            <Send className="w-4 h-4" />
           </button>
         </div>
       </form>
