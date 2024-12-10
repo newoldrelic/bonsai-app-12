@@ -7,8 +7,17 @@ import * as admin from 'firebase-admin';
 if (!admin.apps.length) {
   try {
     const privateKey = process.env.FIREBASE_PRIVATE_KEY;
+    const projectId = process.env.FIREBASE_PROJECT_ID;
+    const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+
     if (!privateKey) {
       throw new Error('FIREBASE_PRIVATE_KEY environment variable is not set');
+    }
+    if (!projectId) {
+      throw new Error('FIREBASE_PROJECT_ID environment variable is not set');
+    }
+    if (!clientEmail) {
+      throw new Error('FIREBASE_CLIENT_EMAIL environment variable is not set');
     }
 
     // Handle the private key string properly
@@ -16,8 +25,8 @@ if (!admin.apps.length) {
 
     admin.initializeApp({
       credential: admin.credential.cert({
-        projectId: "bonsai-c0690",
-        clientEmail: "firebase-adminsdk-qqw8j@bonsai-c0690.iam.gserviceaccount.com",
+        projectId,
+        clientEmail,
         privateKey: formattedPrivateKey
       })
     });
