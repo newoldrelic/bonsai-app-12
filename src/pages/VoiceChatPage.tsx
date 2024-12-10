@@ -7,6 +7,7 @@ declare global {
   interface Window {
     PlayAI?: {
       open: (id: string) => void;
+      close: () => void;
     };
   }
 }
@@ -31,8 +32,17 @@ export function VoiceChatPage() {
       }
     };
 
+    // Cleanup function
     return () => {
+      // Close PlayAI instance if it exists
+      if (window.PlayAI?.close) {
+        window.PlayAI.close();
+      }
+      // Remove the script
       script.remove();
+      // Remove any PlayAI elements that might have been left behind
+      const playAiElements = document.querySelectorAll('[id^="play-ai"]');
+      playAiElements.forEach(element => element.remove());
     };
   }, []);
 
