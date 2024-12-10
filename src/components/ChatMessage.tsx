@@ -1,5 +1,6 @@
 import React from 'react';
 import { Bot, User } from 'lucide-react';
+import { MarkdownContent } from './MarkdownContent';
 
 interface ChatMessageProps {
   message: string;
@@ -23,7 +24,7 @@ export function ChatMessage({ message, isUser }: ChatMessageProps) {
           ? 'bg-bonsai-green text-white' 
           : 'bg-stone-100 dark:bg-stone-700 text-stone-800 dark:text-stone-200'
       }`}>
-        <p className="whitespace-pre-wrap">{message}</p>
+        <MarkdownContent content={message} />
       </div>
     </div>
   );
