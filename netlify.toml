@@ -32,9 +32,13 @@
   targetPort = 5173
 
 [template.environment]
+  STRIPE_PUBLISHABLE_KEY = "Secret key from Stripe dashboard"
   STRIPE_SECRET_KEY = "Secret key from Stripe dashboard"
   STRIPE_WEBHOOK_SECRET = "Webhook signing secret from Stripe dashboard"
   OPENAI_API_KEY = "Secret key from OpenAI dashboard"
+  FIREBASE_PRIVATE_KEY = "Firebase Admin SDK private key"
+  FIREBASE_PROJECT_ID = "Firebase project ID"
+  FIREBASE_CLIENT_EMAIL = "Firebase Admin SDK client email"
 
 [[headers]]
   for = "/*"
