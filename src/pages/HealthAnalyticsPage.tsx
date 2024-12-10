@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Stethoscope, Crown, ArrowRight, AlertCircle, Loader2, Info, Leaf, TreeDeciduous } from 'lucide-react';
+import { Stethoscope, Crown, ArrowRight, AlertCircle, Loader2, Info, Leaf } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useSubscriptionStore } from '../store/subscriptionStore';
 import { ImageUpload } from '../components/ImageUpload';
@@ -193,42 +193,32 @@ export function HealthAnalyticsPage() {
             </div>
           </div>
 
-          <div className="space-y-6">
-            {previewImage && (
-              <div className="card p-6">
-                <h3 className="text-lg font-medium text-bonsai-bark dark:text-white mb-4">Uploaded Image</h3>
-                <img
-                  src={previewImage}
-                  alt="Uploaded bonsai"
-                  className="w-full h-48 object-cover rounded-lg"
-                />
-              </div>
-            )}
-
-            {analysis && (
-              <div className="card p-6">
-                <h3 className="text-lg font-medium text-bonsai-bark dark:text-white mb-4 flex items-center gap-2">
-                  <Stethoscope className="w-5 h-5 text-bonsai-green" />
-                  <span>Health Analysis</span>
-                </h3>
-                <div className="prose prose-stone dark:prose-invert">
-                  <MarkdownContent content={analysis} />
+          {(previewImage || analysis) && (
+            <div className="space-y-6">
+              {previewImage && (
+                <div className="card p-6">
+                  <h3 className="text-lg font-medium text-bonsai-bark dark:text-white mb-4">Uploaded Image</h3>
+                  <img
+                    src={previewImage}
+                    alt="Uploaded bonsai"
+                    className="w-full h-48 object-cover rounded-lg"
+                  />
                 </div>
-              </div>
-            )}
+              )}
 
-            {!analysis && !previewImage && (
-              <div className="card p-6 text-center">
-                <TreeDeciduous className="w-12 h-12 text-bonsai-green/30 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-bonsai-bark dark:text-white mb-2">
-                  No Analysis Yet
-                </h3>
-                <p className="text-gray-600 dark:text-gray-300">
-                  Upload a photo of your bonsai to receive a detailed health analysis and care recommendations.
-                </p>
-              </div>
-            )}
-          </div>
+              {analysis && (
+                <div className="card p-6">
+                  <h3 className="text-lg font-medium text-bonsai-bark dark:text-white mb-4 flex items-center gap-2">
+                    <Stethoscope className="w-5 h-5 text-bonsai-green" />
+                    <span>Health Analysis</span>
+                  </h3>
+                  <div className="prose prose-stone dark:prose-invert">
+                    <MarkdownContent content={analysis} />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
