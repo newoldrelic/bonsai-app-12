@@ -7,6 +7,7 @@ import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  fetchSignInMethodsForEmail,
   type User 
 } from 'firebase/auth';
 
@@ -17,6 +18,7 @@ interface AuthState {
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   createAccount: (email: string, password: string) => Promise<void>;
+  checkEmailExists: (email: string) => Promise<boolean>;
   logout: () => Promise<void>;
   clearError: () => void;
 }
@@ -25,6 +27,16 @@ export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   loading: true,
   error: null,
+
+  checkEmailExists: async (email: string) => {
+    try {
+      const methods = await fetchSignInMethodsForEmail(auth, email);
+      return methods.length > 0;
+    } catch (error) {
+      console.error('Error checking email:', error);
+      return false;
+    }
+  },
 
   signInWithEmail: async (email: string, password: string) => {
     try {
