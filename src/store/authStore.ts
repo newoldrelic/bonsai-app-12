@@ -30,12 +30,19 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   checkEmailExists: async (email: string) => {
     try {
-      console.log('Checking methods for email:', email);
+      console.log('Starting email check for:', email);
       const methods = await fetchSignInMethodsForEmail(auth, email);
-      console.log('Sign-in methods:', methods);
-      return methods.length > 0;
-    } catch (error) {
-      console.error('Error checking email:', error);
+      console.log('Available sign-in methods:', methods);
+      const exists = methods.length > 0;
+      console.log('Email exists?', exists, 'Methods:', methods.join(', '));
+      return exists;
+    } catch (error: any) {
+      console.error('Error checking email existence:', error);
+      if (error.code === 'auth/invalid-email') {
+        console.log('Invalid email format');
+      } else if (error.code === 'auth/too-many-requests') {
+        console.log('Too many requests');
+      }
       return false;
     }
   },
