@@ -67,7 +67,7 @@ export function ExpertCoachingPage() {
             <h1 className="text-3xl font-bold text-bonsai-bark dark:text-white">AI Expert Coaching</h1>
           </div>
           <p className="text-gray-600 dark:text-gray-300">
-            Get expert guidance through chat or voice interaction with Ken Nakamura, your AI bonsai expert.
+            Get expert guidance through chat or voice interaction based on knowledge from Ken Nakamura, your bonsai expert.
           </p>
         </div>
 

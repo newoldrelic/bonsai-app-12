@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Loader2 } from 'lucide-react';
+import { Send, Loader2, Info } from 'lucide-react';
 import { ChatMessage } from './ChatMessage';
 import { auth } from '../config/firebase';
 
@@ -16,7 +16,6 @@ function getFirstName(user: any): string {
   if (user?.displayName) {
     return user.displayName.split(' ')[0];
   }
-  // Fallback to email parsing if no display name
   const email = user?.email || '';
   const namePart = email.split('@')[0];
   return namePart.split(/[._]/)[0].charAt(0).toUpperCase() + namePart.split(/[._]/)[0].slice(1);
@@ -42,7 +41,6 @@ export function ChatInterface({ onSendMessage }: ChatInterfaceProps) {
   };
 
   useEffect(() => {
-    // Initial scroll to show the full chat interface
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollIntoView({ 
         behavior: 'auto',
@@ -92,6 +90,12 @@ export function ChatInterface({ onSendMessage }: ChatInterfaceProps) {
             isUser={message.isUser}
           />
         ))}
+        {messages.length === 1 && (
+          <p className="text-xs text-stone-500 dark:text-stone-400 text-center flex items-center justify-center gap-1">
+            <Info className="w-3 h-3" />
+            <span>Expert responses can be downloaded for your reference</span>
+          </p>
+        )}
         {isLoading && (
           <div className="flex items-center space-x-2 text-bonsai-green">
             <Loader2 className="w-5 h-5 animate-spin" />

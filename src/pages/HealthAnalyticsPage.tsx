@@ -1,19 +1,19 @@
 import React, { useState } from 'react';
-import { Leaf, TreeDeciduous, Crown, Download, Stethoscope } from 'lucide-react';
+import { Leaf, TreeDeciduous, Crown, ArrowRight, Info } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useSubscriptionStore } from '../store/subscriptionStore';
 import { HealthAnalyzer } from '../components/HealthAnalyzer';
 import { MarkdownContent } from '../components/MarkdownContent';
-import { downloadText, formatAnalysisForDownload } from '../utils/download';
 import { FEATURES } from '../config/features';
+import { downloadText, formatAnalysisForDownload } from '../utils/download';
 
 const feature = FEATURES.find(f => f.id === 'health-analytics')!;
 
 const ANALYSIS_STEPS = [
   'Initializing health analysis...',
-  'Examining leaf condition...',
-  'Checking for signs of disease...',
-  'Analyzing overall vigor...',
+  'Examining leaf condition and color...',
+  'Checking for signs of disease or pests...',
+  'Assessing overall tree vigor...',
   'Generating recommendations...'
 ];
 
@@ -27,7 +27,7 @@ export function HealthAnalyticsPage() {
   const [error, setError] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
 
-  const handleAnalyze = async (imageData: string) => {
+  const handleImageUpload = async (imageData: string) => {
     if (!isSubscribed) {
       navigate('/pricing');
       return;
@@ -37,36 +37,52 @@ export function HealthAnalyticsPage() {
     setError(null);
     setCurrentStep(0);
 
+    const analyzeWithDelay = async () => {
+      try {
+        const response = await fetch('/.netlify/functions/analyze-health', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            image: imageData
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to analyze image');
+        }
+
+        const data = await response.json();
+        if (data.error) {
+          throw new Error(data.error);
+        }
+
+        setAnalysis(data.analysis);
+      } catch (err: any) {
+        setError(err.message || 'Failed to analyze image');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    // Simulate step progression
     const stepInterval = setInterval(() => {
-      setCurrentStep(current => (current < ANALYSIS_STEPS.length - 1 ? current + 1 : current));
+      setCurrentStep(prev => {
+        if (prev < ANALYSIS_STEPS.length - 1) return prev + 1;
+        clearInterval(stepInterval);
+        return prev;
+      });
     }, 2000);
 
-    try {
-      const response = await fetch('/.netlify/functions/analyze-health', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          image: imageData
-        }),
-      });
+    await analyzeWithDelay();
+    clearInterval(stepInterval);
+  };
 
-      if (!response.ok) {
-        throw new Error('Failed to analyze image');
-      }
-
-      const data = await response.json();
-      if (data.error) {
-        throw new Error(data.error);
-      }
-
-      setAnalysis(data.analysis);
-    } catch (err: any) {
-      setError(err.message || 'Failed to analyze image');
-    } finally {
-      clearInterval(stepInterval);
-      setLoading(false);
+  const handleDownload = () => {
+    if (analysis) {
+      const formattedContent = formatAnalysisForDownload(analysis, 'health');
+      downloadText(formattedContent, `bonsai-health-analysis-${Date.now()}.txt`);
     }
   };
 
@@ -83,6 +99,10 @@ export function HealthAnalyticsPage() {
           <p className="text-gray-600 dark:text-gray-300">
             {feature.description}
           </p>
+          <p className="text-sm text-stone-500 dark:text-stone-400 mt-2 flex items-center justify-center gap-1">
+            <Info className="w-4 h-4" />
+            <span>Analysis results can be downloaded for future reference</span>
+          </p>
         </div>
 
         <div className="space-y-6">
@@ -90,39 +110,51 @@ export function HealthAnalyticsPage() {
             <h2 className="text-xl font-semibold text-bonsai-bark dark:text-white mb-4">
               Analyze Your Bonsai's Health
             </h2>
-            
             <HealthAnalyzer
-              onAnalyze={handleAnalyze}
+              onAnalyze={handleImageUpload}
               loading={loading}
               error={error}
               currentStep={currentStep}
               steps={ANALYSIS_STEPS}
             />
-          </div>
 
-          {analysis && (
-            <div className="card p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-medium text-bonsai-bark dark:text-white flex items-center gap-2">
-                  <Stethoscope className="w-5 h-5 text-bonsai-green" />
-                  <span>Health Analysis</span>
-                </h3>
-                <button
-                  onClick={() => {
-                    const formattedContent = formatAnalysisForDownload(analysis, 'health');
-                    downloadText(formattedContent, `bonsai-health-analysis-${Date.now()}.txt`);
-                  }}
-                  className="text-sm text-stone-500 dark:text-stone-400 hover:text-bonsai-green dark:hover:text-bonsai-green flex items-center gap-1 transition-colors"
-                >
-                  <Download className="w-4 h-4" />
-                  <span>Download analysis</span>
-                </button>
-              </div>
-              <div className="prose prose-stone dark:prose-invert">
+            {analysis && (
+              <div className="mt-6 p-4 bg-bonsai-green/10 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-medium text-bonsai-bark dark:text-white">
+                    Analysis Results
+                  </h3>
+                  <button
+                    onClick={handleDownload}
+                    className="text-sm text-bonsai-green hover:text-bonsai-moss transition-colors flex items-center gap-1"
+                  >
+                    <Info className="w-4 h-4" />
+                    <span>Download Analysis</span>
+                  </button>
+                </div>
                 <MarkdownContent content={analysis} />
               </div>
-            </div>
-          )}
+            )}
+
+            {!isSubscribed && (
+              <div className="mt-4 p-4 bg-bonsai-terra/10 rounded-lg flex items-start space-x-3">
+                <Crown className="w-5 h-5 text-bonsai-terra flex-shrink-0 mt-1" />
+                <div>
+                  <p className="text-bonsai-terra font-medium">Premium Feature</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+                    Upgrade to unlock expert health analysis and treatment recommendations.
+                  </p>
+                  <button
+                    onClick={() => navigate('/pricing')}
+                    className="mt-3 text-bonsai-terra hover:text-bonsai-clay transition-colors text-sm font-medium flex items-center space-x-2"
+                  >
+                    <span>View Pricing</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
 
           <div className="card p-6">
             <h2 className="text-xl font-semibold text-bonsai-bark dark:text-white mb-4">
