@@ -36,11 +36,11 @@ export const useAuthStore = create<AuthState>((set) => ({
       return true; // This line won't be reached
     } catch (error: any) {
       console.log('Sign-in error code:', error.code);
-      // If error is wrong password, user exists
-      if (error.code === 'auth/wrong-password') {
+      // If error is invalid-credential or wrong-password, user exists
+      if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password') {
         return true;
       }
-      // If error is user not found, user doesn't exist
+      // If error is user-not-found, user doesn't exist
       if (error.code === 'auth/user-not-found') {
         return false;
       }
@@ -60,7 +60,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       let errorMessage = 'Failed to sign in. Please try again.';
       if (error.code === 'auth/user-not-found') {
         errorMessage = 'No account found with this email. Please create an account first.';
-      } else if (error.code === 'auth/wrong-password') {
+      } else if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
         errorMessage = 'Incorrect password. Please try again.';
       }
       logAnalyticsEvent('login_error', { method: 'email', error: error.code });
