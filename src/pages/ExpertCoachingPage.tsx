@@ -95,7 +95,7 @@ export function ExpertCoachingPage() {
           <h2 className="text-xl font-semibold text-bonsai-bark dark:text-white mb-4">About Your Expert</h2>
           <div className="prose prose-stone dark:prose-invert max-w-none">
             <p className="text-sm">
-              Ken Nakamura is an AI bonsai expert trained on decades of bonsai knowledge. He provides guidance on:
+              Ken Nakamur-ai is an AI bonsai expert trained on decades of bonsai knowledge. He provides guidance on:
             </p>
             <div className="grid grid-cols-2 gap-4 mt-2 text-sm">
               <ul className="space-y-1">

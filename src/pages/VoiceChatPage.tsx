@@ -82,7 +82,7 @@ export function VoiceChatPage() {
             <h1 className="text-3xl font-bold text-bonsai-bark dark:text-white">AI Expert Coaching</h1>
           </div>
           <p className="text-gray-600 dark:text-gray-300">
-            Get expert guidance through voice interaction with Ken Nakamura, your AI bonsai expert.
+            Get expert guidance through voice interaction with knowledge from Ken Nakamura, your bonsai expert.
           </p>
         </div>
 
@@ -112,7 +112,7 @@ export function VoiceChatPage() {
           <h2 className="text-xl font-semibold text-bonsai-bark dark:text-white mb-4">About Your Expert</h2>
           <div className="prose prose-stone dark:prose-invert max-w-none">
             <p className="text-sm">
-              Ken Nakamura is an AI bonsai expert trained on decades of bonsai knowledge. He provides guidance on:
+              Ken Nakamur-ai is an AI bonsai expert trained on decades of bonsai knowledge. He provides guidance on:
             </p>
             <div className="grid grid-cols-2 gap-4 mt-2 text-sm">
               <ul className="space-y-1">
