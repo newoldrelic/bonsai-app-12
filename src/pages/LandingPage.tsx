@@ -24,6 +24,8 @@ export function LandingPage() {
       setCheckingEmail(true);
       try {
         const exists = await checkEmailExists(email);
+        // If email exists, they should sign in (isNewUser = false)
+        // If email doesn't exist, they should create account (isNewUser = true)
         setIsNewUser(!exists);
         setShowPasswordField(true);
       } catch (error) {
