@@ -18,9 +18,9 @@ interface AuthState {
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   createAccount: (email: string, password: string) => Promise<void>;
-  checkEmailExists: (email: string) => Promise<boolean>;
   logout: () => Promise<void>;
   clearError: () => void;
+  checkEmailExists: (email: string) => Promise<boolean>;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -30,7 +30,9 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   checkEmailExists: async (email: string) => {
     try {
+      console.log('Checking methods for email:', email);
       const methods = await fetchSignInMethodsForEmail(auth, email);
+      console.log('Sign-in methods:', methods);
       return methods.length > 0;
     } catch (error) {
       console.error('Error checking email:', error);

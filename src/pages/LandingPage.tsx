@@ -7,7 +7,7 @@ import { FEATURES } from '../config/features';
 
 export function LandingPage() {
   const navigate = useNavigate();
-  const { user, signInWithGoogle, signInWithEmail, createAccount, checkEmailExists, loading, error } = useAuthStore();
+  const { user, signInWithGoogle, signInWithEmail, createAccount, loading, error, checkEmailExists } = useAuthStore();
   const { trees } = useBonsaiStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -23,10 +23,11 @@ export function LandingPage() {
     if (!showPasswordField) {
       setCheckingEmail(true);
       try {
+        console.log('Checking email:', email);
         const exists = await checkEmailExists(email);
-        // If email exists, they should sign in (isNewUser = false)
-        // If email doesn't exist, they should create account (isNewUser = true)
+        console.log('Email exists?', exists);
         setIsNewUser(!exists);
+        console.log('Setting isNewUser to:', !exists);
         setShowPasswordField(true);
       } catch (error) {
         console.error('Error checking email:', error);
@@ -38,6 +39,7 @@ export function LandingPage() {
 
     if (!email || !password) return;
     
+    console.log('Attempting auth with isNewUser:', isNewUser);
     if (isNewUser) {
       await createAccount(email, password);
     } else {
@@ -98,7 +100,7 @@ export function LandingPage() {
                 <span className="block text-3xl md:text-4xl lg:text-5xl font-medium mt-1">FOR BEGINNERS</span>
               </h1>
               <p className="text-white/90 dark:text-white/90 text-base md:text-lg leading-relaxed max-w-xl mt-3">
-                Your personal guide to the art of bonsai cultivation. Track, learn, and grow with expert guidance.
+                Your personal guide to the art of bonsai cultivation. Track, learn, and grow with expert guidance from <a href="https://www.amazon.com/stores/author/B0DM2F226F/about" target="_blank" rel="noopener noreferrer" className="text-white hover:text-white/80">Ken Nakamura</a>, author of <a href="https://www.amazon.com/dp/1917554109" target="_blank" rel="noopener noreferrer" className="text-white hover:text-white/80">Bonsai for Beginners</a>.
               </p>
               
               {!user ? (
@@ -116,9 +118,7 @@ export function LandingPage() {
                       <button
                         type="submit"
                         disabled={loading || checkingEmail}
-                        className={`px-6 py-3 border-l-0 border border-white/20 text-white font-medium rounded-r-full transition-all disabled:opacity-50 flex items-center justify-center whitespace-nowrap ${
-                          email ? 'bg-bonsai-green hover:bg-bonsai-moss' : 'bg-stone-800/80 backdrop-blur-sm hover:bg-stone-700/80'
-                        }`}
+                        className="px-6 py-3 bg-stone-800/80 backdrop-blur-sm border-l-0 border border-white/20 text-white font-medium rounded-r-full hover:bg-stone-700/80 transition-all disabled:opacity-50 flex items-center justify-center whitespace-nowrap"
                       >
                         {checkingEmail ? 'Checking...' : 'Go'}
                       </button>
@@ -147,7 +147,7 @@ export function LandingPage() {
                   {showPasswordField && (
                     <button
                       onClick={() => setIsNewUser(!isNewUser)}
-                      className="w-full text-center text-white/90 hover:text-white font-medium text-sm py-2 transition-colors"
+                      className="w-full text-center text-white/90 hover:text-white text-sm font-medium"
                     >
                       {isNewUser ? 'Already have an account? Sign in' : 'Need an account? Create one'}
                     </button>
@@ -162,9 +162,9 @@ export function LandingPage() {
                   <button 
                     onClick={signInWithGoogle}
                     disabled={loading}
-                    className={`w-full px-6 py-3 border border-white/20 text-white font-medium rounded-full transition-all flex items-center justify-center gap-2 ${
-                      email ? 'bg-stone-800/40 hover:bg-stone-700/40' : 'bg-stone-800/80 hover:bg-stone-700/80'
-                    } backdrop-blur-sm`}
+                    className={`w-full px-6 py-3 bg-stone-800/80 backdrop-blur-sm border border-white/20 text-white font-medium rounded-full hover:bg-stone-700/80 transition-all flex items-center justify-center gap-2 ${
+                      showPasswordField ? 'opacity-50' : ''
+                    }`}
                   >
                     <img src="https://www.google.com/favicon.ico" alt="Google" className="w-4 h-4" />
                     <span>Continue with Google</span>
@@ -180,7 +180,7 @@ export function LandingPage() {
                 <div className="space-y-3 mt-6">
                   <button 
                     onClick={() => navigate('/dashboard')}
-                    className="btn-primary group relative overflow-hidden px-6 py-3 rounded-full"
+                    className="btn-primary group relative overflow-hidden px-6 py-2 rounded-full"
                   >
                     <span className="relative z-10 flex items-center justify-center space-x-2">
                       <span>View Your Collection</span>
