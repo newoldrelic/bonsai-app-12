@@ -35,8 +35,13 @@ export const useAuthStore = create<AuthState>((set) => ({
       console.log('Sign-in methods:', methods);
       return methods.length > 0;
     } catch (error: any) {
+      // Check if error is due to user not found
+      if (error.code === 'auth/user-not-found') {
+        return false;
+      }
+      // For other errors, assume user exists to be safe
       console.error('Error checking email existence:', error);
-      return false;
+      return true;
     }
   },
 
