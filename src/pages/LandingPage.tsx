@@ -21,7 +21,7 @@ export function LandingPage() {
     
     if (!showPasswordField) {
       const exists = await checkEmailExists(email);
-      setIsNewUser(!exists);
+      setIsNewUser(!exists);  // If email exists, they are not a new user
       setShowPasswordField(true);
       return;
     }
