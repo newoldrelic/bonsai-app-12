@@ -15,14 +15,22 @@ export function LandingPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isNewUser, setIsNewUser] = useState(false);
   const [showGiftSticker, setShowGiftSticker] = useState(true);
+  const [checkingEmail, setCheckingEmail] = useState(false);
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!showPasswordField) {
-      const exists = await checkEmailExists(email);
-      setIsNewUser(!exists);  // If email exists, they are not a new user
-      setShowPasswordField(true);
+      setCheckingEmail(true);
+      try {
+        const exists = await checkEmailExists(email);
+        setIsNewUser(!exists);
+        setShowPasswordField(true);
+      } catch (error) {
+        console.error('Error checking email:', error);
+      } finally {
+        setCheckingEmail(false);
+      }
       return;
     }
 
@@ -105,12 +113,12 @@ export function LandingPage() {
                       />
                       <button
                         type="submit"
-                        disabled={loading}
+                        disabled={loading || checkingEmail}
                         className={`px-6 py-3 border-l-0 border border-white/20 text-white font-medium rounded-r-full transition-all disabled:opacity-50 flex items-center justify-center whitespace-nowrap ${
                           email ? 'bg-bonsai-green hover:bg-bonsai-moss' : 'bg-stone-800/80 backdrop-blur-sm hover:bg-stone-700/80'
                         }`}
                       >
-                        Go
+                        {checkingEmail ? 'Checking...' : 'Go'}
                       </button>
                     </div>
                     {showPasswordField && (
