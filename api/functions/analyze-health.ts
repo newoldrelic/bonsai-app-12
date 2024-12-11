@@ -1,10 +1,8 @@
 import type { HandlerEvent, HandlerResponse } from '@netlify/functions';
 import OpenAI from 'openai';
 import { AI_PROMPTS } from '../../src/config/ai-prompts';
-
-const openai = new OpenAI({
- apiKey: process.env.OPENAI_API_KEY
-});
+import { checkOpenAIConfig } from '../../src/utils/openai';
+import { debug } from '../../src/utils/debug';
 
 export const handler = async (event: HandlerEvent): Promise<HandlerResponse> => {
   // Add CORS headers
@@ -28,6 +26,17 @@ export const handler = async (event: HandlerEvent): Promise<HandlerResponse> => 
       body: JSON.stringify({ error: 'Method Not Allowed' })
     };
   }
+
+  // Validate OpenAI configuration
+  if (!checkOpenAIConfig()) {
+    debug.error('OpenAI API is not properly configured');
+    return {
+      statusCode: 500,
+      headers,
+      body: JSON.stringify({ error: 'OpenAI API is not properly configured' })
+    };
+  }
+
   try {
     const { image } = JSON.parse(event.body || '{}');
     if (!image) {
@@ -41,6 +50,11 @@ export const handler = async (event: HandlerEvent): Promise<HandlerResponse> => 
     const imageUrl = image.startsWith('data:') 
       ? image 
       : `data:image/jpeg;base64,${image}`;
+
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY
+    });
+
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
