@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { auth, googleProvider, logAnalyticsEvent } from '../config/firebase';
+import { auth, googleProvider, logAnalyticsEvent, db } from '../config/firebase';
 import { 
   signInWithPopup, 
   signInWithRedirect, 
@@ -7,9 +7,9 @@ import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
-  fetchSignInMethodsForEmail,
   type User 
 } from 'firebase/auth';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 
 interface AuthState {
   user: User | null;
@@ -31,18 +31,26 @@ export const useAuthStore = create<AuthState>((set) => ({
   checkEmailExists: async (email: string) => {
     try {
       console.log('Starting email check for:', email);
-      const methods = await fetchSignInMethodsForEmail(auth, email);
-      console.log('Available sign-in methods:', methods);
-      const exists = methods.length > 0;
-      console.log('Email exists?', exists, 'Methods:', methods.join(', '));
-      return exists;
+      
+      // Try to sign in with wrong password to check if user exists
+      try {
+        await signInWithEmailAndPassword(auth, email, 'dummy-password');
+      } catch (error: any) {
+        // If error code is 'auth/wrong-password', user exists
+        if (error.code === 'auth/wrong-password') {
+          console.log('User found in Firebase Auth');
+          return true;
+        }
+        // If error code is 'auth/user-not-found', user doesn't exist
+        if (error.code === 'auth/user-not-found') {
+          console.log('User not found in Firebase Auth');
+          return false;
+        }
+      }
+
+      return false;
     } catch (error: any) {
       console.error('Error checking email existence:', error);
-      if (error.code === 'auth/invalid-email') {
-        console.log('Invalid email format');
-      } else if (error.code === 'auth/too-many-requests') {
-        console.log('Too many requests');
-      }
       return false;
     }
   },
