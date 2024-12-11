@@ -7,7 +7,6 @@ import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
-  fetchSignInMethodsForEmail,
   type User 
 } from 'firebase/auth';
 
@@ -31,17 +30,22 @@ export const useAuthStore = create<AuthState>((set) => ({
   checkEmailExists: async (email: string) => {
     try {
       console.log('Starting email check for:', email);
-      const methods = await fetchSignInMethodsForEmail(auth, email);
-      console.log('Sign-in methods:', methods);
-      return methods.length > 0;
+      // Try to sign in with an invalid password
+      // This will fail, but the error code will tell us if the user exists
+      await signInWithEmailAndPassword(auth, email, 'dummy-password');
+      return true; // This line won't be reached
     } catch (error: any) {
-      // Check if error is due to user not found
+      console.log('Sign-in error code:', error.code);
+      // If error is wrong password, user exists
+      if (error.code === 'auth/wrong-password') {
+        return true;
+      }
+      // If error is user not found, user doesn't exist
       if (error.code === 'auth/user-not-found') {
         return false;
       }
-      // For other errors, assume user exists to be safe
-      console.error('Error checking email existence:', error);
-      return true;
+      // For any other error, assume user doesn't exist
+      return false;
     }
   },
 
