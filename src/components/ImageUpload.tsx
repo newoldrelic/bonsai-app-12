@@ -1,14 +1,18 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Camera, Upload } from 'lucide-react';
+import { Camera, Upload, AlertCircle } from 'lucide-react';
+import { processImage, validateImageFile } from '../utils/imageProcessing';
+import { debug } from '../utils/debug';
 
 interface ImageUploadProps {
-  onImageCapture: (file: File) => void;
+  onImageCapture: (dataUrl: string) => void;
+  onError?: (error: string) => void;
 }
 
-export function ImageUpload({ onImageCapture }: ImageUploadProps) {
+export function ImageUpload({ onImageCapture, onError }: ImageUploadProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const [isMobile, setIsMobile] = useState(false);
+  const [processing, setProcessing] = useState(false);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -20,19 +24,23 @@ export function ImageUpload({ onImageCapture }: ImageUploadProps) {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
-      if (!file.type.startsWith('image/')) {
-        alert('Please select a valid image file');
-        return;
-      }
-      // Max size 10MB
-      if (file.size > 10 * 1024 * 1024) {
-        alert('Image size must be less than 10MB');
-        return;
-      }
-      onImageCapture(file);
+    if (!file) return;
+
+    try {
+      setProcessing(true);
+      validateImageFile(file);
+      
+      const { dataUrl } = await processImage(file);
+      onImageCapture(dataUrl);
+    } catch (error) {
+      debug.error('Image processing error:', error);
+      onError?.(error instanceof Error ? error.message : 'Failed to process image');
+    } finally {
+      setProcessing(false);
+      // Clear input value to allow selecting the same file again
+      event.target.value = '';
     }
   };
 
@@ -42,21 +50,23 @@ export function ImageUpload({ onImageCapture }: ImageUploadProps) {
         {isMobile && (
           <button
             type="button"
+            disabled={processing}
             onClick={() => cameraInputRef.current?.click()}
-            className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 bg-bonsai-green text-white rounded-lg hover:bg-bonsai-moss transition-colors"
+            className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 bg-bonsai-green text-white rounded-lg hover:bg-bonsai-moss transition-colors disabled:opacity-50"
           >
             <Camera className="w-5 h-5" />
-            <span>Take Photo</span>
+            <span>{processing ? 'Processing...' : 'Take Photo'}</span>
           </button>
         )}
         
         <button
           type="button"
+          disabled={processing}
           onClick={() => fileInputRef.current?.click()}
-          className={`${isMobile ? 'flex-1' : 'w-48'} flex items-center justify-center space-x-2 px-4 py-2 border-2 border-bonsai-green text-bonsai-green rounded-lg hover:bg-bonsai-green hover:text-white transition-colors`}
+          className={`${isMobile ? 'flex-1' : 'w-48'} flex items-center justify-center space-x-2 px-4 py-2 border-2 border-bonsai-green text-bonsai-green rounded-lg hover:bg-bonsai-green hover:text-white transition-colors disabled:opacity-50`}
         >
           <Upload className="w-5 h-5" />
-          <span>Upload Photo</span>
+          <span>{processing ? 'Processing...' : 'Upload Photo'}</span>
         </button>
       </div>
 
