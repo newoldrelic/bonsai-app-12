@@ -1,4 +1,4 @@
-import { format, setHours, setMinutes, addDays } from 'date-fns';
+import { format, addDays, setHours, setMinutes } from 'date-fns';
 import type { MaintenanceType } from '../types';
 import { debug } from './debug';
 
@@ -41,42 +41,39 @@ export const MAINTENANCE_SCHEDULES: Record<MaintenanceType, NotificationSchedule
   }
 };
 
-// Store notification timers to clear them when needed
+// Store notification timers to allow cancellation
 const notificationTimers: Record<string, NodeJS.Timeout> = {};
 
-// Store notification time preference in localStorage
-const NOTIFICATION_TIME_KEY = 'bonsai-notification-time';
+// Store notification time preference
 let notificationTime = { hours: 9, minutes: 0 }; // Default to 9:00 AM
-
-// Load saved notification time
-try {
-  const savedTime = localStorage.getItem(NOTIFICATION_TIME_KEY);
-  if (savedTime) {
-    notificationTime = JSON.parse(savedTime);
-  }
-} catch (error) {
-  debug.error('Error loading notification time:', error);
-}
 
 export const setNotificationTime = (hours: number, minutes: number) => {
   notificationTime = { hours, minutes };
-  localStorage.setItem(NOTIFICATION_TIME_KEY, JSON.stringify(notificationTime));
-  
-  // Reschedule all active notifications with new time
-  Object.keys(notificationTimers).forEach(key => {
-    const [treeId, type] = key.split('-');
-    rescheduleNotification(treeId, type as MaintenanceType);
-  });
+  debug.info('Notification time set to:', { hours, minutes });
 };
 
 export const getNotificationTime = () => notificationTime;
 
 // Function to check if notifications are already enabled
 export const areNotificationsEnabled = () => {
-  return 'Notification' in window && 
-         Notification.permission === 'granted' && 
-         'serviceWorker' in navigator;
+  return 'Notification' in window && Notification.permission === 'granted';
 };
+
+// Register service worker
+export async function registerServiceWorker() {
+  if (!('serviceWorker' in navigator)) {
+    throw new Error('Service workers are not supported');
+  }
+
+  try {
+    const registration = await navigator.serviceWorker.register('/notification-worker.js');
+    debug.info('Service Worker registered:', registration);
+    return registration;
+  } catch (error) {
+    debug.error('Service Worker registration failed:', error);
+    throw error;
+  }
+}
 
 // Function to request notification permissions
 export const requestNotificationPermission = async () => {
@@ -85,16 +82,7 @@ export const requestNotificationPermission = async () => {
     return false;
   }
 
-  if (!('serviceWorker' in navigator)) {
-    debug.warn('This browser does not support service workers');
-    return false;
-  }
-
   try {
-    // Register service worker first
-    const registration = await navigator.serviceWorker.register('/notification-worker.js');
-    debug.info('Service Worker registered:', registration);
-
     // Check current permission status
     if (Notification.permission === 'granted') {
       return true;
@@ -107,8 +95,9 @@ export const requestNotificationPermission = async () => {
     // Request permission
     const permission = await Notification.requestPermission();
     if (permission === 'granted') {
+      const registration = await navigator.serviceWorker.ready;
       // Send a test notification
-      registration.showNotification('Bonsai Care Notifications Enabled', {
+      await registration.showNotification('Bonsai Care Notifications Enabled', {
         body: 'You will now receive maintenance reminders for your bonsai trees.',
         icon: '/bonsai-icon.png'
       });
@@ -117,11 +106,12 @@ export const requestNotificationPermission = async () => {
     
     return false;
   } catch (error) {
-    debug.error('Error setting up notifications:', error);
+    debug.error('Error requesting notification permission:', error);
     return false;
   }
 };
 
+// Clear existing notification timer
 function clearExistingNotification(treeId: string, type: MaintenanceType) {
   const key = `${treeId}-${type}`;
   if (notificationTimers[key]) {
@@ -130,11 +120,7 @@ function clearExistingNotification(treeId: string, type: MaintenanceType) {
   }
 }
 
-async function rescheduleNotification(treeId: string, type: MaintenanceType) {
-  clearExistingNotification(treeId, type);
-  await scheduleNotification(treeId, '', type); // Empty string for treeName as it will be fetched from store
-}
-
+// Schedule notification
 export async function scheduleNotification(
   treeId: string,
   treeName: string,

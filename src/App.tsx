@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { LandingPage } from './pages/LandingPage';
 import { Dashboard } from './components/Dashboard';
@@ -13,12 +13,15 @@ import { AuthError } from './components/AuthError';
 import { CookieConsent } from './components/CookieConsent';
 import { useAuthStore } from './store/authStore';
 import { useSubscriptionStore } from './store/subscriptionStore';
+import { useBonsaiStore } from './store/bonsaiStore';
 import { SpeciesIdentifierPage } from './pages/SpeciesIdentifierPage';
 import { HealthAnalyticsPage } from './pages/HealthAnalyticsPage';
 import { CareGuidePage } from './pages/CareGuidePage';
 import { ExpertCoachingPage } from './pages/ExpertCoachingPage';
 import { VoiceChatPage } from './pages/VoiceChatPage';
 import { logAnalyticsEvent } from './config/firebase';
+import { debug } from './utils/debug';
+import { registerServiceWorker } from './utils/notifications';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuthStore();
@@ -63,6 +66,42 @@ function PremiumRoute({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   const { loading } = useAuthStore();
+
+  // Register service worker early
+  useEffect(() => {
+    registerServiceWorker().catch(error => {
+      debug.error('Failed to register service worker:', error);
+    });
+  }, []);
+
+  // Set up message listener for maintenance tasks
+  useEffect(() => {
+    const handleMessage = async (event: MessageEvent) => {
+      if (event.data?.type === 'MAINTENANCE_DONE') {
+        const { data, notificationTag } = event.data;
+        if (data?.treeId && data?.type) {
+          try {
+            // Add maintenance log for the completed task
+            const log = {
+              type: data.type,
+              date: new Date().toISOString(),
+              notes: 'Marked as done from notification',
+              images: []
+            };
+            await useBonsaiStore.getState().addMaintenanceLog(data.treeId, log);
+            debug.info('Maintenance task completed:', { treeId: data.treeId, type: data.type });
+          } catch (error) {
+            debug.error('Failed to log maintenance completion:', error);
+          }
+        }
+      }
+    };
+
+    navigator.serviceWorker?.addEventListener('message', handleMessage);
+    return () => {
+      navigator.serviceWorker?.removeEventListener('message', handleMessage);
+    };
+  }, []);
 
   React.useEffect(() => {
     logAnalyticsEvent('app_loaded');
