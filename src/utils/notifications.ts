@@ -41,18 +41,28 @@ export const MAINTENANCE_SCHEDULES: Record<MaintenanceType, NotificationSchedule
   }
 };
 
-// Store notification timers to allow cancellation
+// Store notification timers
 const notificationTimers: Record<string, NodeJS.Timeout> = {};
 
-// Store notification time preference
-let notificationTime = { hours: 9, minutes: 0 }; // Default to 9:00 AM
+// Store notification time preference in localStorage
+const NOTIFICATION_TIME_KEY = 'bonsai-notification-time';
 
 export const setNotificationTime = (hours: number, minutes: number) => {
-  notificationTime = { hours, minutes };
+  localStorage.setItem(NOTIFICATION_TIME_KEY, JSON.stringify({ hours, minutes }));
   debug.info('Notification time set to:', { hours, minutes });
 };
 
-export const getNotificationTime = () => notificationTime;
+export const getNotificationTime = () => {
+  try {
+    const stored = localStorage.getItem(NOTIFICATION_TIME_KEY);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch (error) {
+    debug.error('Error reading notification time:', error);
+  }
+  return { hours: 9, minutes: 0 }; // Default to 9:00 AM
+};
 
 // Function to check if notifications are already enabled
 export const areNotificationsEnabled = () => {
@@ -95,9 +105,8 @@ export const requestNotificationPermission = async () => {
     // Request permission
     const permission = await Notification.requestPermission();
     if (permission === 'granted') {
-      const registration = await navigator.serviceWorker.ready;
-      // Send a test notification
-      await registration.showNotification('Bonsai Care Notifications Enabled', {
+      // Send a single welcome notification
+      new Notification('Bonsai Care Notifications Enabled', {
         body: 'You will now receive maintenance reminders for your bonsai trees.',
         icon: '/bonsai-icon.png'
       });
@@ -133,57 +142,49 @@ export async function scheduleNotification(
     return;
   }
 
-  try {
-    const registration = await navigator.serviceWorker.ready;
-    const schedule = MAINTENANCE_SCHEDULES[type];
-    const lastDate = lastPerformed ? new Date(lastPerformed) : new Date();
-    
-    // Calculate next notification time
-    let nextDate = addDays(lastDate, schedule.interval / (24 * 60 * 60 * 1000));
-    nextDate = setHours(nextDate, notificationTime.hours);
-    nextDate = setMinutes(nextDate, notificationTime.minutes);
+  const schedule = MAINTENANCE_SCHEDULES[type];
+  const lastDate = lastPerformed ? new Date(lastPerformed) : new Date();
+  const { hours, minutes } = getNotificationTime();
+  
+  // Calculate next notification time
+  let nextDate = addDays(lastDate, schedule.interval / (24 * 60 * 60 * 1000));
+  nextDate = setHours(nextDate, hours);
+  nextDate = setMinutes(nextDate, minutes);
 
-    // If the calculated time is in the past, add the interval to get the next occurrence
-    if (nextDate < new Date()) {
-      nextDate = addDays(nextDate, schedule.interval / (24 * 60 * 60 * 1000));
-    }
-
-    const timeUntilNotification = nextDate.getTime() - Date.now();
-    const key = `${treeId}-${type}`;
-
-    // Clear any existing notification for this tree/type
-    clearExistingNotification(treeId, type);
-
-    // Schedule the notification
-    notificationTimers[key] = setTimeout(async () => {
-      if (areNotificationsEnabled()) {
-        try {
-          await registration.showNotification(`Bonsai Maintenance: ${treeName}`, {
-            body: `${schedule.message} (Last done: ${format(lastDate, 'PP')})`,
-            icon: '/bonsai-icon.png',
-            tag: key,
-            requireInteraction: true,
-            actions: [
-              { action: 'done', title: 'Mark as Done' },
-              { action: 'snooze', title: 'Snooze 1hr' }
-            ],
-            data: {
-              treeId,
-              type,
-              lastPerformed: lastDate.toISOString()
-            }
-          });
-
-          // Schedule the next notification
-          scheduleNotification(treeId, treeName, type, nextDate.toISOString());
-        } catch (error) {
-          debug.error('Failed to show notification:', error);
-        }
-      }
-    }, Math.max(0, timeUntilNotification));
-
-    debug.info(`Scheduled ${type} notification for ${treeName} at ${format(nextDate, 'PPpp')}`);
-  } catch (error) {
-    debug.error('Error scheduling notification:', error);
+  // If the calculated time is in the past, add the interval
+  if (nextDate < new Date()) {
+    nextDate = addDays(nextDate, schedule.interval / (24 * 60 * 60 * 1000));
   }
+
+  const timeUntilNotification = nextDate.getTime() - Date.now();
+  const key = `${treeId}-${type}`;
+
+  // Clear any existing notification
+  clearExistingNotification(treeId, type);
+
+  // Schedule the notification
+  notificationTimers[key] = setTimeout(() => {
+    if (areNotificationsEnabled()) {
+      try {
+        const notification = new Notification(`Bonsai Maintenance: ${treeName}`, {
+          body: `${schedule.message} (Last done: ${format(lastDate, 'PP')})`,
+          icon: '/bonsai-icon.png',
+          tag: key,
+          requireInteraction: true
+        });
+
+        notification.onclick = () => {
+          window.focus();
+          notification.close();
+        };
+
+        // Schedule next notification
+        scheduleNotification(treeId, treeName, type, nextDate.toISOString());
+      } catch (error) {
+        debug.error('Failed to show notification:', error);
+      }
+    }
+  }, Math.max(0, timeUntilNotification));
+
+  debug.info(`Scheduled ${type} notification for ${treeName} at ${format(nextDate, 'PPpp')}`);
 }

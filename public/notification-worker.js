@@ -7,33 +7,26 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('notificationclick', (event) => {
-  const notification = event.notification;
-  notification.close();
+  event.notification.close();
 
   if (event.action === 'snooze') {
     // Snooze for 1 hour
     const snoozeTime = new Date().getTime() + (60 * 60 * 1000);
-    
-    event.waitUntil(
-      self.registration.showNotification(notification.title, {
-        ...notification.options,
-        showTrigger: new TimestampTrigger(snoozeTime),
-        tag: notification.tag
-      })
-    );
+    self.registration.showNotification(event.notification.title, {
+      ...event.notification.options,
+      timestamp: snoozeTime
+    });
   } else if (event.action === 'done') {
     // Send message to client to mark task as done
-    event.waitUntil(
-      self.clients.matchAll().then((clients) => {
-        clients.forEach((client) => {
-          client.postMessage({
-            type: 'MAINTENANCE_DONE',
-            data: notification.data,
-            notificationTag: notification.tag
-          });
+    self.clients.matchAll().then((clients) => {
+      clients.forEach((client) => {
+        client.postMessage({
+          type: 'MAINTENANCE_DONE',
+          data: event.notification.data,
+          notificationTag: event.notification.tag
         });
-      })
-    );
+      });
+    });
   } else {
     // Open the app when clicking the notification
     event.waitUntil(
@@ -47,25 +40,7 @@ self.addEventListener('notificationclick', (event) => {
   }
 });
 
-// Handle notification close
 self.addEventListener('notificationclose', (event) => {
-  // Optional: Track when notifications are dismissed
-  console.log('Notification closed', event.notification.tag);
-});
-
-// Handle scheduled notifications
-self.addEventListener('notificationtrigger', (event) => {
-  const notification = event.notification;
-  const data = notification.data;
-  
-  // Schedule next notification
-  if (data?.nextScheduled) {
-    const nextDate = new Date(data.nextScheduled);
-    if (nextDate > new Date()) {
-      self.registration.showNotification(notification.title, {
-        ...notification.options,
-        showTrigger: new TimestampTrigger(nextDate.getTime())
-      });
-    }
-  }
+  // Handle notification close if needed
+  console.log('Notification closed:', event.notification.tag);
 });
