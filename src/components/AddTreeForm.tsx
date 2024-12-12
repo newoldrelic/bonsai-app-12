@@ -113,52 +113,151 @@ export function AddTreeForm({ onClose, onSubmit }: AddTreeFormProps) {
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* ... other form fields ... */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-6">
+              <div>
+                <label htmlFor="name" className="block text-sm font-medium text-stone-700 dark:text-stone-300 mb-1">
+                  Tree Name
+                </label>
+                <input
+                  type="text"
+                  id="name"
+                  required
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="w-full px-3 py-2 bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-bonsai-green focus:border-bonsai-green"
+                  placeholder="Give your bonsai a name"
+                />
+              </div>
 
-          <div className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-stone-700 dark:text-stone-300 mb-1">
-                Tree Photo
-              </label>
-              <ImageUpload 
-                onImageCapture={handleImageCapture}
-                onError={handleImageError}
-              />
-              
-              {imageError && (
-                <div className="mt-2 flex items-start space-x-2 text-red-600 dark:text-red-400 text-sm">
-                  <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                  <span>{imageError}</span>
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label htmlFor="species" className="block text-sm font-medium text-stone-700 dark:text-stone-300">
+                    Species
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowSpeciesIdentifier(true)}
+                    className="text-sm text-bonsai-green hover:text-bonsai-moss transition-colors"
+                  >
+                    Species Identifier
+                  </button>
                 </div>
-              )}
-              
-              {formData.images.length > 0 && (
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  {formData.images.map((image, index) => (
-                    <div key={index} className="relative">
-                      <img
-                        src={image}
-                        alt={`Tree photo ${index + 1}`}
-                        className="w-full h-24 object-cover rounded-lg"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setFormData(prev => ({
-                          ...prev,
-                          images: prev.images.filter((_, i) => i !== index)
-                        }))}
-                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
+                <input
+                  type="text"
+                  id="species"
+                  required
+                  value={formData.species}
+                  onChange={(e) => setFormData({ ...formData, species: e.target.value })}
+                  className="w-full px-3 py-2 bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-bonsai-green focus:border-bonsai-green"
+                  placeholder="e.g., Japanese Maple, Chinese Elm"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="dateAcquired" className="block text-sm font-medium text-stone-700 dark:text-stone-300 mb-1">
+                  Date Acquired
+                </label>
+                <input
+                  type="date"
+                  id="dateAcquired"
+                  required
+                  value={formData.dateAcquired}
+                  onChange={(e) => setFormData({ ...formData, dateAcquired: e.target.value })}
+                  className="w-full px-3 py-2 bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-bonsai-green focus:border-bonsai-green"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="notes" className="block text-sm font-medium text-stone-700 dark:text-stone-300 mb-1">
+                  Notes
+                </label>
+                <textarea
+                  id="notes"
+                  rows={3}
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  className="w-full px-3 py-2 bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-bonsai-green focus:border-bonsai-green"
+                  placeholder="Add any notes about your bonsai..."
+                />
+              </div>
+            </div>
+
+            <div className="space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-stone-700 dark:text-stone-300 mb-3">
+                  Style
+                </label>
+                <StyleSelector
+                  value={formData.style}
+                  onChange={(style) => setFormData({ ...formData, style })}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-stone-700 dark:text-stone-300 mb-1">
+                  Tree Photo
+                </label>
+                <ImageUpload 
+                  onImageCapture={handleImageCapture}
+                  onError={handleImageError}
+                />
+                
+                {imageError && (
+                  <div className="mt-2 flex items-start space-x-2 text-red-600 dark:text-red-400 text-sm">
+                    <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    <span>{imageError}</span>
+                  </div>
+                )}
+                
+                {formData.images.length > 0 && (
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    {formData.images.map((image, index) => (
+                      <div key={index} className="relative">
+                        <img
+                          src={image}
+                          alt={`Tree photo ${index + 1}`}
+                          className="w-full h-24 object-cover rounded-lg"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setFormData(prev => ({
+                            ...prev,
+                            images: prev.images.filter((_, i) => i !== index)
+                          }))}
+                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* ... rest of the form ... */}
+          <MaintenanceSection
+            notifications={formData.notifications}
+            onNotificationChange={(type, value) => setFormData(prev => ({
+              ...prev,
+              notifications: {
+                ...prev.notifications,
+                [type]: value
+              }
+            }))}
+            addToCalendar={addToCalendar}
+            onAddToCalendarChange={setAddToCalendar}
+          />
+
+          <div className="pt-4 border-t border-stone-200 dark:border-stone-700">
+            <button
+              type="submit"
+              className="w-full bg-bonsai-green text-white px-4 py-2 rounded-lg hover:bg-bonsai-moss transition-colors"
+            >
+              Add Tree
+            </button>
+          </div>
         </form>
       </div>
 
