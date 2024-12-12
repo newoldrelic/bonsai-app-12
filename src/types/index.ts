@@ -78,3 +78,19 @@ export interface SubscriptionPlan {
   name: string;
   features: string[];
 }
+
+export interface MaintenanceSchedule {
+  treeId: string;
+  treeName: string;
+  type: MaintenanceType;
+  lastPerformed?: string;
+  nextScheduled: string;
+  enabled: boolean;
+}
+
+export interface NotificationSettings {
+  userEmail: string;
+  hours: number;
+  minutes: number;
+  schedules: MaintenanceSchedule[];
+}
