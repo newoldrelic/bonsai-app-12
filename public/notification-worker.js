@@ -17,7 +17,7 @@ self.addEventListener('notificationclick', (event) => {
     event.waitUntil(
       self.registration.showNotification(notification.title, {
         ...notification.options,
-        timestamp: snoozeTime,
+        showTrigger: new TimestampTrigger(snoozeTime),
         tag: notification.tag
       })
     );
@@ -51,4 +51,21 @@ self.addEventListener('notificationclick', (event) => {
 self.addEventListener('notificationclose', (event) => {
   // Optional: Track when notifications are dismissed
   console.log('Notification closed', event.notification.tag);
+});
+
+// Handle scheduled notifications
+self.addEventListener('notificationtrigger', (event) => {
+  const notification = event.notification;
+  const data = notification.data;
+  
+  // Schedule next notification
+  if (data?.nextScheduled) {
+    const nextDate = new Date(data.nextScheduled);
+    if (nextDate > new Date()) {
+      self.registration.showNotification(notification.title, {
+        ...notification.options,
+        showTrigger: new TimestampTrigger(nextDate.getTime())
+      });
+    }
+  }
 });

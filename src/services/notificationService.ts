@@ -1,12 +1,13 @@
 import { debug } from '../utils/debug';
 import type { MaintenanceType } from '../types';
 import { MAINTENANCE_SCHEDULES } from '../config/maintenance';
-import { format } from 'date-fns';
+import { format, addMilliseconds, setHours, setMinutes } from 'date-fns';
 
 class NotificationService {
   private static instance: NotificationService;
   private registration: ServiceWorkerRegistration | null = null;
   private initialized = false;
+  private notificationTime = { hours: 9, minutes: 0 }; // Default to 9:00 AM
 
   private constructor() {}
 
@@ -38,6 +39,11 @@ class NotificationService {
       debug.error('Failed to initialize notification service:', error);
       throw error;
     }
+  }
+
+  setNotificationTime(hours: number, minutes: number): void {
+    this.notificationTime = { hours, minutes };
+    debug.info('Notification time set to:', { hours, minutes });
   }
 
   async requestPermission(): Promise<boolean> {
@@ -82,11 +88,15 @@ class NotificationService {
       const lastDate = lastPerformed ? new Date(lastPerformed) : new Date();
       const nextDate = this.calculateNextNotificationTime(lastDate, schedule.interval);
 
+      // Schedule the notification using the service worker
+      const timestamp = nextDate.getTime();
+      
       await this.registration.showNotification(`Bonsai Maintenance: ${treeName}`, {
         body: `${schedule.message} (Last done: ${format(lastDate, 'PP')})`,
         icon: '/bonsai-icon.png',
         tag: `${treeId}-${type}`,
         requireInteraction: true,
+        showTrigger: new TimestampTrigger(timestamp),
         actions: [
           { action: 'done', title: 'Mark as Done' },
           { action: 'snooze', title: 'Snooze 1hr' }
@@ -94,11 +104,12 @@ class NotificationService {
         data: {
           treeId,
           type,
-          lastPerformed: lastDate.toISOString()
+          lastPerformed: lastDate.toISOString(),
+          nextScheduled: nextDate.toISOString()
         }
       });
 
-      debug.info(`Scheduled ${type} notification for ${treeName}`);
+      debug.info(`Scheduled ${type} notification for ${treeName} at ${format(nextDate, 'PPpp')}`);
     } catch (error) {
       debug.error('Failed to schedule notification:', error);
     }
@@ -118,11 +129,17 @@ class NotificationService {
   }
 
   private calculateNextNotificationTime(lastDate: Date, interval: number): Date {
-    const nextDate = new Date(lastDate.getTime() + interval);
-    const now = new Date();
+    // Calculate the next occurrence based on the interval
+    let nextDate = addMilliseconds(lastDate, interval);
     
+    // Set to configured notification time
+    nextDate = setHours(nextDate, this.notificationTime.hours);
+    nextDate = setMinutes(nextDate, this.notificationTime.minutes);
+    
+    // If the calculated time is in the past, add the interval
+    const now = new Date();
     if (nextDate < now) {
-      return new Date(now.getTime() + interval);
+      nextDate = addMilliseconds(nextDate, interval);
     }
     
     return nextDate;
@@ -130,11 +147,17 @@ class NotificationService {
 
   private handleServiceWorkerMessage = async (event: MessageEvent) => {
     if (event.data?.type === 'MAINTENANCE_DONE') {
-      const { treeId, type } = event.data;
-      // Emit event for maintenance completion
-      window.dispatchEvent(new CustomEvent('maintenanceCompleted', {
-        detail: { treeId, type }
-      }));
+      const { data } = event.data;
+      if (data?.treeId && data?.type) {
+        // Schedule next notification
+        const nextDate = this.calculateNextNotificationTime(new Date(), MAINTENANCE_SCHEDULES[data.type].interval);
+        await this.scheduleNotification(data.treeId, data.treeName, data.type, new Date().toISOString());
+        
+        // Emit event for maintenance completion
+        window.dispatchEvent(new CustomEvent('maintenanceCompleted', {
+          detail: { treeId: data.treeId, type: data.type }
+        }));
+      }
     }
   };
 }
