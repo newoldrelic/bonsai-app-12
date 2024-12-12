@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Camera, Upload, AlertCircle } from 'lucide-react';
+import { Camera, Upload, Loader2 } from 'lucide-react';
 import { processImage, validateImageFile } from '../utils/imageProcessing';
 import { debug } from '../utils/debug';
 
@@ -26,21 +26,29 @@ export function ImageUpload({ onImageCapture, onError }: ImageUploadProps) {
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (!file) {
+      return;
+    }
 
     try {
       setProcessing(true);
-      validateImageFile(file);
       
+      // Validate file before processing
+      validateImageFile(file);
+
+      // Process the image
       const { dataUrl } = await processImage(file);
       onImageCapture(dataUrl);
+      
+      // Clear the input value to allow selecting the same file again
+      if (event.target) {
+        event.target.value = '';
+      }
     } catch (error) {
       debug.error('Image processing error:', error);
       onError?.(error instanceof Error ? error.message : 'Failed to process image');
     } finally {
       setProcessing(false);
-      // Clear input value to allow selecting the same file again
-      event.target.value = '';
     }
   };
 
@@ -54,8 +62,17 @@ export function ImageUpload({ onImageCapture, onError }: ImageUploadProps) {
             onClick={() => cameraInputRef.current?.click()}
             className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 bg-bonsai-green text-white rounded-lg hover:bg-bonsai-moss transition-colors disabled:opacity-50"
           >
-            <Camera className="w-5 h-5" />
-            <span>{processing ? 'Processing...' : 'Take Photo'}</span>
+            {processing ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                <span>Processing...</span>
+              </>
+            ) : (
+              <>
+                <Camera className="w-5 h-5" />
+                <span>Take Photo</span>
+              </>
+            )}
           </button>
         )}
         
@@ -65,8 +82,17 @@ export function ImageUpload({ onImageCapture, onError }: ImageUploadProps) {
           onClick={() => fileInputRef.current?.click()}
           className={`${isMobile ? 'flex-1' : 'w-48'} flex items-center justify-center space-x-2 px-4 py-2 border-2 border-bonsai-green text-bonsai-green rounded-lg hover:bg-bonsai-green hover:text-white transition-colors disabled:opacity-50`}
         >
-          <Upload className="w-5 h-5" />
-          <span>{processing ? 'Processing...' : 'Upload Photo'}</span>
+          {processing ? (
+            <>
+              <Loader2 className="w-5 h-5 animate-spin" />
+              <span>Processing...</span>
+            </>
+          ) : (
+            <>
+              <Upload className="w-5 h-5" />
+              <span>Upload Photo</span>
+            </>
+          )}
         </button>
       </div>
 
