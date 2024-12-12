@@ -17,13 +17,13 @@ import {
 import type { BonsaiTree, MaintenanceLog } from '../types';
 import { scheduleNotification } from '../utils/notifications';
 import { auth, db, logAnalyticsEvent } from '../config/firebase';
+import { debug } from '../utils/debug';
+import { MAINTENANCE_SCHEDULES } from '../config/maintenance';
 
 // Enable offline persistence
 try {
-  // Try multi-tab persistence first
   enableMultiTabIndexedDbPersistence(db).catch((err) => {
     if (err.code === 'failed-precondition') {
-      // Multiple tabs open, fallback to single-tab persistence
       enableIndexedDbPersistence(db);
     } else if (err.code === 'unimplemented') {
       console.warn('Browser doesn\'t support IndexedDB persistence');
@@ -44,6 +44,7 @@ interface BonsaiStore {
   deleteTree: (id: string) => Promise<void>;
   loadTrees: () => Promise<void>;
   clearError: () => void;
+  updateNotificationSettings: (treeId: string, type: keyof typeof MAINTENANCE_SCHEDULES, enabled: boolean) => Promise<void>;
 }
 
 export const useBonsaiStore = create<BonsaiStore>((set, get) => {
@@ -69,6 +70,20 @@ export const useBonsaiStore = create<BonsaiStore>((set, get) => {
           })) as BonsaiTree[];
           set({ trees, loading: false, offline: false });
           logAnalyticsEvent('trees_sync_success');
+
+          // Schedule notifications for all enabled maintenance types
+          trees.forEach(tree => {
+            Object.entries(tree.notifications).forEach(([type, enabled]) => {
+              if (enabled) {
+                scheduleNotification(
+                  tree.id,
+                  tree.name,
+                  type as MaintenanceType,
+                  tree.lastMaintenance?.[type]
+                );
+              }
+            });
+          });
         },
         error: (error) => {
           console.error('Firestore subscription error:', error);
@@ -159,7 +174,12 @@ export const useBonsaiStore = create<BonsaiStore>((set, get) => {
           ...tree,
           maintenanceLogs: [],
           userEmail: user.email,
-          createdAt: serverTimestamp()
+          createdAt: serverTimestamp(),
+          lastMaintenance: {},
+          notificationSettings: {
+            hours: 9,
+            minutes: 0
+          }
         };
 
         const docRef = await addDoc(collection(db, 'trees'), newTree);
@@ -199,10 +219,15 @@ export const useBonsaiStore = create<BonsaiStore>((set, get) => {
         const newLog = { ...log, id: crypto.randomUUID() };
         const updatedLogs = [...tree.maintenanceLogs, newLog];
 
-        await updateDoc(doc(db, 'trees', treeId), {
+        const updates = {
           maintenanceLogs: updatedLogs,
-          [`last${log.type.charAt(0).toUpperCase() + log.type.slice(1)}`]: log.date
-        });
+          lastMaintenance: {
+            ...tree.lastMaintenance,
+            [log.type]: log.date
+          }
+        };
+
+        await updateDoc(doc(db, 'trees', treeId), updates);
         await waitForPendingWrites(db);
 
         // Reschedule notification for this maintenance type
@@ -245,6 +270,37 @@ export const useBonsaiStore = create<BonsaiStore>((set, get) => {
           offline: isOffline
         });
         logAnalyticsEvent('tree_update_error', { error: error.code });
+      }
+    },
+
+    updateNotificationSettings: async (treeId, type, enabled) => {
+      try {
+        const tree = get().trees.find(t => t.id === treeId);
+        if (!tree) throw new Error('Tree not found');
+
+        const updates = {
+          notifications: {
+            ...tree.notifications,
+            [type]: enabled
+          }
+        };
+
+        await updateDoc(doc(db, 'trees', treeId), updates);
+        await waitForPendingWrites(db);
+
+        if (enabled) {
+          scheduleNotification(
+            treeId,
+            tree.name,
+            type,
+            tree.lastMaintenance?.[type]
+          );
+        }
+
+        logAnalyticsEvent('notification_settings_updated');
+      } catch (error: any) {
+        console.error('Error updating notification settings:', error);
+        throw error;
       }
     },
 

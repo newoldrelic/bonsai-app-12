@@ -3,7 +3,7 @@ import type { MaintenanceType, NotificationSettings, MaintenanceSchedule } from 
 import { MAINTENANCE_SCHEDULES } from '../config/maintenance';
 import { format, addMilliseconds, setHours, setMinutes } from 'date-fns';
 import { db } from '../config/firebase';
-import { doc, setDoc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, setDoc, getDoc, collection, query, where, getDocs, arrayUnion } from 'firebase/firestore';
 
 class NotificationService {
   private static instance: NotificationService;
@@ -11,6 +11,7 @@ class NotificationService {
   private initialized = false;
   private notificationTime = { hours: 9, minutes: 0 }; // Default to 9:00 AM
   private userEmail: string | null = null;
+  private notificationTimers: Record<string, NodeJS.Timeout> = {};
 
   private constructor() {}
 
@@ -133,8 +134,87 @@ class NotificationService {
     }
   }
 
-  // Rest of the existing methods remain the same...
-  
+  private calculateNextNotificationTime(lastDate: Date, interval: number): Date {
+    let nextDate = addMilliseconds(lastDate, interval);
+    nextDate = setHours(nextDate, this.notificationTime.hours);
+    nextDate = setMinutes(nextDate, this.notificationTime.minutes);
+
+    // If calculated time is in the past, add interval
+    if (nextDate < new Date()) {
+      nextDate = addMilliseconds(nextDate, interval);
+    }
+
+    return nextDate;
+  }
+
+  private clearExistingNotification(key: string): void {
+    if (this.notificationTimers[key]) {
+      clearTimeout(this.notificationTimers[key]);
+      delete this.notificationTimers[key];
+    }
+  }
+
+  private handleServiceWorkerMessage = async (event: MessageEvent) => {
+    if (event.data?.type === 'MAINTENANCE_DONE') {
+      const { data } = event.data;
+      if (data?.treeId && data?.type) {
+        try {
+          await this.updateMaintenanceSchedule(
+            data.treeId,
+            data.treeName,
+            data.type as MaintenanceType,
+            true,
+            new Date().toISOString()
+          );
+          debug.info('Maintenance task completed:', data);
+        } catch (error) {
+          debug.error('Failed to update maintenance schedule:', error);
+        }
+      }
+    }
+  };
+
+  async scheduleNotification(
+    treeId: string,
+    treeName: string,
+    type: MaintenanceType,
+    lastPerformed?: string
+  ): Promise<void> {
+    if (!this.registration || !('Notification' in window) || Notification.permission !== 'granted') {
+      debug.warn('Notifications not available or not permitted');
+      return;
+    }
+
+    const schedule = MAINTENANCE_SCHEDULES[type];
+    const lastDate = lastPerformed ? new Date(lastPerformed) : new Date();
+    const nextDate = this.calculateNextNotificationTime(lastDate, schedule.interval);
+    const timeUntilNotification = nextDate.getTime() - Date.now();
+    const key = `${treeId}-${type}`;
+
+    // Clear any existing notification
+    this.clearExistingNotification(key);
+
+    // Schedule new notification
+    this.notificationTimers[key] = setTimeout(async () => {
+      try {
+        await this.registration?.showNotification(`Bonsai Maintenance: ${treeName}`, {
+          body: `${schedule.message} (Last done: ${format(lastDate, 'PP')})`,
+          icon: '/bonsai-icon.png',
+          tag: key,
+          requireInteraction: true,
+          data: { treeId, treeName, type }
+        });
+
+        // Schedule next notification
+        await this.scheduleNotification(treeId, treeName, type, nextDate.toISOString());
+      } catch (error) {
+        debug.error('Failed to show notification:', error);
+      }
+    }, Math.max(0, timeUntilNotification));
+
+    debug.info(`Scheduled ${type} notification for ${treeName} at ${format(nextDate, 'PPpp')}`);
+  }
+
   async updateMaintenanceSchedule(
     treeId: string,
     treeName: string,
@@ -162,11 +242,13 @@ class NotificationService {
 
       await setDoc(settingsRef, {
         userEmail: this.userEmail,
-        schedules: admin.firestore.FieldValue.arrayUnion(schedule)
+        schedules: arrayUnion(schedule)
       }, { merge: true });
 
       if (enabled) {
         await this.scheduleNotification(treeId, treeName, type, lastPerformed);
+      } else {
+        this.clearExistingNotification(`${treeId}-${type}`);
       }
     } catch (error) {
       debug.error('Failed to update maintenance schedule:', error);
