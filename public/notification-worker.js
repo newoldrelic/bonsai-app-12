@@ -7,25 +7,33 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('notificationclick', (event) => {
-  event.notification.close();
+  const notification = event.notification;
+  notification.close();
 
   if (event.action === 'snooze') {
     // Snooze for 1 hour
     const snoozeTime = new Date().getTime() + (60 * 60 * 1000);
-    self.registration.showNotification(event.notification.title, {
-      ...event.notification.options,
-      timestamp: snoozeTime
-    });
+    
+    event.waitUntil(
+      self.registration.showNotification(notification.title, {
+        ...notification.options,
+        timestamp: snoozeTime,
+        tag: notification.tag
+      })
+    );
   } else if (event.action === 'done') {
     // Send message to client to mark task as done
-    self.clients.matchAll().then((clients) => {
-      clients.forEach((client) => {
-        client.postMessage({
-          type: 'MAINTENANCE_DONE',
-          notificationTag: event.notification.tag
+    event.waitUntil(
+      self.clients.matchAll().then((clients) => {
+        clients.forEach((client) => {
+          client.postMessage({
+            type: 'MAINTENANCE_DONE',
+            data: notification.data,
+            notificationTag: notification.tag
+          });
         });
-      });
-    });
+      })
+    );
   } else {
     // Open the app when clicking the notification
     event.waitUntil(
@@ -37,4 +45,10 @@ self.addEventListener('notificationclick', (event) => {
       })
     );
   }
+});
+
+// Handle notification close
+self.addEventListener('notificationclose', (event) => {
+  // Optional: Track when notifications are dismissed
+  console.log('Notification closed', event.notification.tag);
 });
