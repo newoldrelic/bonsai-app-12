@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Bell, Calendar } from 'lucide-react';
 import { Toggle } from './Toggle';
 import { NotificationTimeSelector } from './NotificationTimeSelector';
 import type { NotificationPreferences } from '../types';
+import { notificationService } from '../services/notificationService';
+import { debug } from '../utils/debug';
 
 interface MaintenanceSectionProps {
   notifications: NotificationPreferences;
@@ -22,6 +24,29 @@ const NOTIFICATION_TYPES = [
 export function MaintenanceSection({ notifications, onNotificationChange, onAddToCalendarChange, addToCalendar }: MaintenanceSectionProps) {
   const hasEnabledNotifications = Object.values(notifications).some(value => value);
 
+  useEffect(() => {
+    // Initialize notification service when component mounts
+    notificationService.init().catch(error => {
+      debug.error('Failed to initialize notifications:', error);
+    });
+  }, []);
+
+  const handleNotificationToggle = async (type: keyof NotificationPreferences, enabled: boolean) => {
+    if (enabled) {
+      try {
+        const granted = await notificationService.requestPermission();
+        if (!granted) {
+          debug.warn('Notification permission denied');
+          return;
+        }
+      } catch (error) {
+        debug.error('Error requesting notification permission:', error);
+        return;
+      }
+    }
+    onNotificationChange(type, enabled);
+  };
+
   return (
     <div>
       <div className="flex items-center space-x-2 mb-4">
@@ -36,7 +61,7 @@ export function MaintenanceSection({ notifications, onNotificationChange, onAddT
           <Toggle
             key={id}
             checked={notifications[id as keyof typeof notifications]}
-            onChange={(checked) => onNotificationChange(id as keyof NotificationPreferences, checked)}
+            onChange={(checked) => handleNotificationToggle(id as keyof NotificationPreferences, checked)}
             label={label}
             description={description}
             icon={<span className="text-base">{icon}</span>}
