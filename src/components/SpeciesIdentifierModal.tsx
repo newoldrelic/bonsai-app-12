@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Camera, Upload, Loader2, Search } from 'lucide-react';
+import { X, Loader2, Search } from 'lucide-react';
 import { ImageUpload } from './ImageUpload';
 
 interface SpeciesIdentifierModalProps {
@@ -12,17 +12,14 @@ export function SpeciesIdentifierModal({ onClose, onSpeciesIdentified }: Species
   const [error, setError] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
-  const handleImageCapture = async (file: File) => {
-    try {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreviewImage(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    } catch (err: any) {
-      console.error('Error reading file:', err);
-      setError('Failed to load image preview');
-    }
+  const handleImageCapture = (dataUrl: string) => {
+    setError(null);
+    setPreviewImage(dataUrl);
+  };
+
+  const handleImageError = (error: string) => {
+    setError(error);
+    setPreviewImage(null);
   };
 
   const handleAnalyze = async () => {
@@ -81,7 +78,10 @@ export function SpeciesIdentifierModal({ onClose, onSpeciesIdentified }: Species
           </p>
 
           {!previewImage ? (
-            <ImageUpload onImageCapture={handleImageCapture} />
+            <ImageUpload 
+              onImageCapture={handleImageCapture}
+              onError={handleImageError}
+            />
           ) : (
             <div className="space-y-4">
               <div className="relative">

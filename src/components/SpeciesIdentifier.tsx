@@ -22,24 +22,19 @@ export function SpeciesIdentifier({ onSpeciesIdentified }: SpeciesIdentifierProp
   const isSubscribed = currentPlan.id !== 'hobby';
   const remainingUsages = getFreeUsagesRemaining();
 
-  const handleImageCapture = async (file: File) => {
+  const handleImageCapture = (dataUrl: string) => {
     if (!isSubscribed && !hasRemainingUsages()) {
       navigate('/pricing');
       return;
     }
 
     setError(null);
-    
-    try {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreviewImage(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    } catch (err: any) {
-      console.error('Error reading file:', err);
-      setError('Failed to load image preview');
-    }
+    setPreviewImage(dataUrl);
+  };
+
+  const handleImageError = (error: string) => {
+    setError(error);
+    setPreviewImage(null);
   };
 
   const handleAnalyze = async () => {
@@ -82,7 +77,7 @@ export function SpeciesIdentifier({ onSpeciesIdentified }: SpeciesIdentifierProp
       setPreviewImage(null);
     } catch (err: any) {
       console.error('Species identification error:', err);
-      setError(err.message || 'Failed to identify species. Please try again.');
+      setError(err.message || 'Failed to identify species');
     } finally {
       setLoading(false);
       if (!error) {
@@ -112,7 +107,10 @@ export function SpeciesIdentifier({ onSpeciesIdentified }: SpeciesIdentifierProp
       )}
 
       {!previewImage ? (
-        <ImageUpload onImageCapture={handleImageCapture} />
+        <ImageUpload 
+          onImageCapture={handleImageCapture}
+          onError={handleImageError}
+        />
       ) : (
         <div className="space-y-4">
           <div className="relative">
