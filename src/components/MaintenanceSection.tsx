@@ -32,19 +32,29 @@ export function MaintenanceSection({ notifications, onNotificationChange, onAddT
   }, []);
 
   const handleNotificationToggle = async (type: keyof NotificationPreferences, enabled: boolean) => {
-    if (enabled) {
-      try {
-        const granted = await notificationService.requestPermission();
-        if (!granted) {
+    try {
+      if (enabled) {
+        // Request permission if enabling notifications
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
           debug.warn('Notification permission denied');
           return;
         }
-      } catch (error) {
-        debug.error('Error requesting notification permission:', error);
-        return;
       }
+
+      // Update the notification state
+      onNotificationChange(type, enabled);
+
+      // Send a welcome notification if enabling
+      if (enabled) {
+        new Notification('Bonsai Care Notifications Enabled', {
+          body: 'You will now receive maintenance reminders for your bonsai trees.',
+          icon: '/bonsai-icon.png'
+        });
+      }
+    } catch (error) {
+      debug.error('Error handling notification toggle:', error);
     }
-    onNotificationChange(type, enabled);
   };
 
   return (
