@@ -18,7 +18,7 @@ import type { BonsaiTree, MaintenanceLog } from '../types';
 import { scheduleNotification } from '../utils/notifications';
 import { auth, db, logAnalyticsEvent } from '../config/firebase';
 import { debug } from '../utils/debug';
-import { MAINTENANCE_SCHEDULES } from '../config/maintenance';
+import { notificationService } from '../services/notificationService';
 
 // Enable offline persistence
 try {
@@ -44,7 +44,6 @@ interface BonsaiStore {
   deleteTree: (id: string) => Promise<void>;
   loadTrees: () => Promise<void>;
   clearError: () => void;
-  updateNotificationSettings: (treeId: string, type: keyof typeof MAINTENANCE_SCHEDULES, enabled: boolean) => Promise<void>;
 }
 
 export const useBonsaiStore = create<BonsaiStore>((set, get) => {
@@ -67,21 +66,25 @@ export const useBonsaiStore = create<BonsaiStore>((set, get) => {
           const trees = snapshot.docs.map(doc => ({
             ...doc.data(),
             id: doc.id,
-            lastMaintenance: doc.data().lastMaintenance || {} // Ensure lastMaintenance exists
+            lastMaintenance: doc.data().lastMaintenance || {}
           })) as BonsaiTree[];
+          
           set({ trees, loading: false, offline: false });
           logAnalyticsEvent('trees_sync_success');
 
-          // Schedule notifications for all enabled maintenance types
+          // Initialize notification service and schedule notifications
           trees.forEach(tree => {
             Object.entries(tree.notifications).forEach(([type, enabled]) => {
               if (enabled) {
-                scheduleNotification(
+                notificationService.updateMaintenanceSchedule(
                   tree.id,
                   tree.name,
                   type as MaintenanceType,
+                  enabled,
                   tree.lastMaintenance?.[type]
-                );
+                ).catch(error => {
+                  debug.error('Failed to schedule notification:', error);
+                });
               }
             });
           });
@@ -141,7 +144,7 @@ export const useBonsaiStore = create<BonsaiStore>((set, get) => {
         const trees = snapshot.docs.map(doc => ({
           ...doc.data(),
           id: doc.id,
-          lastMaintenance: doc.data().lastMaintenance || {} // Ensure lastMaintenance exists
+          lastMaintenance: doc.data().lastMaintenance || {}
         })) as BonsaiTree[];
         set({ trees, loading: false, offline: false });
         logAnalyticsEvent('trees_loaded');
@@ -190,11 +193,14 @@ export const useBonsaiStore = create<BonsaiStore>((set, get) => {
         // Schedule notifications for enabled maintenance types
         Object.entries(tree.notifications).forEach(([type, enabled]) => {
           if (enabled) {
-            scheduleNotification(
+            notificationService.updateMaintenanceSchedule(
               docRef.id,
               newTree.name,
-              type as MaintenanceType
-            );
+              type as MaintenanceType,
+              enabled
+            ).catch(error => {
+              debug.error('Failed to schedule notification:', error);
+            });
           }
         });
 
@@ -230,18 +236,17 @@ export const useBonsaiStore = create<BonsaiStore>((set, get) => {
           }
         };
 
-        debug.info('Updating tree with maintenance log:', { treeId, updates });
-        
         const treeRef = doc(db, 'trees', treeId);
         await updateDoc(treeRef, updates);
         await waitForPendingWrites(db);
 
-        // Reschedule notification for this maintenance type
+        // Update notification schedule if enabled
         if (tree.notifications[log.type as keyof typeof tree.notifications]) {
-          scheduleNotification(
+          await notificationService.updateMaintenanceSchedule(
             tree.id,
             tree.name,
-            log.type,
+            log.type as MaintenanceType,
+            true,
             log.date
           );
         }
@@ -264,18 +269,36 @@ export const useBonsaiStore = create<BonsaiStore>((set, get) => {
       try {
         set({ loading: true, error: null });
         
-        // Ensure lastMaintenance field exists if not present
+        const tree = get().trees.find(t => t.id === id);
+        if (!tree) throw new Error('Tree not found');
+
+        // Ensure lastMaintenance field exists
         if (!updates.lastMaintenance) {
-          const tree = get().trees.find(t => t.id === id);
-          if (tree) {
-            updates.lastMaintenance = tree.lastMaintenance || {};
-          }
+          updates.lastMaintenance = tree.lastMaintenance || {};
         }
 
+        // Update tree in Firestore
         const treeRef = doc(db, 'trees', id);
         await updateDoc(treeRef, updates);
         await waitForPendingWrites(db);
-        
+
+        // Update notification settings if they've changed
+        if (updates.notifications) {
+          const notificationChanges = Object.entries(updates.notifications).filter(
+            ([type, enabled]) => enabled !== tree.notifications[type as keyof typeof tree.notifications]
+          );
+
+          for (const [type, enabled] of notificationChanges) {
+            await notificationService.updateMaintenanceSchedule(
+              id,
+              updates.name || tree.name,
+              type as MaintenanceType,
+              enabled,
+              updates.lastMaintenance[type]
+            );
+          }
+        }
+
         set({ loading: false, error: null, offline: false });
         logAnalyticsEvent('tree_updated');
       } catch (error: any) {
@@ -287,37 +310,6 @@ export const useBonsaiStore = create<BonsaiStore>((set, get) => {
           offline: isOffline
         });
         logAnalyticsEvent('tree_update_error', { error: error.code });
-      }
-    },
-
-    updateNotificationSettings: async (treeId, type, enabled) => {
-      try {
-        const tree = get().trees.find(t => t.id === treeId);
-        if (!tree) throw new Error('Tree not found');
-
-        const updates = {
-          notifications: {
-            ...tree.notifications,
-            [type]: enabled
-          }
-        };
-
-        await updateDoc(doc(db, 'trees', treeId), updates);
-        await waitForPendingWrites(db);
-
-        if (enabled) {
-          scheduleNotification(
-            treeId,
-            tree.name,
-            type,
-            tree.lastMaintenance?.[type]
-          );
-        }
-
-        logAnalyticsEvent('notification_settings_updated');
-      } catch (error: any) {
-        console.error('Error updating notification settings:', error);
-        throw error;
       }
     },
 
