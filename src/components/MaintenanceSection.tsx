@@ -61,7 +61,8 @@ export function MaintenanceSection({
         // Only show error if it's not a permission-related issue
         if (error instanceof Error && 
             error.message !== 'Notification permission denied' &&
-            !error.message.includes('permission')) {
+            !error.message.includes('permission') &&
+            !error.message.includes('support')) {
           setError('Failed to initialize notifications. Please try again.');
         }
         return;
@@ -78,7 +79,7 @@ export function MaintenanceSection({
             setError('Please allow notifications in your browser settings to enable reminders');
             return;
           }
-          // If just dismissed, don't show error
+          // If just dismissed or not supported, don't show error
           return;
         }
       }
@@ -99,7 +100,8 @@ export function MaintenanceSection({
       // Only show error for actual failures, not permission-related issues
       if (error instanceof Error && 
           error.message !== 'Notification permission denied' &&
-          !error.message.includes('permission')) {
+          !error.message.includes('permission') &&
+          !error.message.includes('support')) {
         setError('Failed to update notification settings. Please try again.');
       }
     }
