@@ -86,40 +86,43 @@ export function MaintenanceSection({
       }
 
       if (enabled) {
-        // Try to initialize notification service first
-        try {
-          setError('Initializing notifications...');
-          await notificationService.init();
-          setError(null);
-        } catch (initError) {
-          setError(`Failed to initialize notifications: ${initError instanceof Error ? initError.message : 'Unknown error'}`);
-          return;
-        }
-
-        // First check if notifications are supported
+        // Check if notifications are supported
         if (!('Notification' in window)) {
           setError('Notifications are not supported in this browser');
           return;
         }
 
-        // Directly request permission from the browser
+        // Initialize service first
         try {
-          setError('Requesting permission...');
+          await notificationService.init();
+        } catch (initError) {
+          setError(`Failed to initialize notifications: ${initError instanceof Error ? initError.message : 'Unknown error'}`);
+          return;
+        }
+
+        // Check current permission state
+        const currentPermission = Notification.permission;
+        
+        if (currentPermission === 'default') {
+          // Permission hasn't been asked for yet, so we can prompt
           const permission = await Notification.requestPermission();
-          
-          if (permission === 'granted') {
-            setError(null);
-          } else {
-            setError('Please enable notifications in your browser settings');
+          if (permission !== 'granted') {
+            setError('Notification permission was not granted');
             return;
           }
-        } catch (permError) {
-          setError(`Permission error: ${permError instanceof Error ? permError.message : 'Unknown error'}`);
+        } else if (currentPermission === 'denied') {
+          // If permission is denied, we need to guide the user to their browser settings
+          setError(
+            'Notifications are blocked. Please enable them in your browser settings:\n' +
+            '1. Tap the ⋮ menu in Chrome\n' +
+            '2. Go to Settings > Site settings > Notifications\n' +
+            '3. Find this site and allow notifications'
+          );
           return;
         }
       }
 
-      // Update the notification state
+      // If we get here, either permissions are granted or we're disabling notifications
       onNotificationChange(type, enabled);
       setError(null);
 
@@ -131,7 +134,6 @@ export function MaintenanceSection({
             icon: '/bonsai-icon.png'
           });
         } catch (notifError) {
-          // Don't block the toggle if welcome notification fails
           debug.error('Failed to show welcome notification:', notifError);
         }
       }
