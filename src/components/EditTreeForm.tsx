@@ -16,7 +16,10 @@ interface EditTreeFormProps {
 }
 
 export function EditTreeForm({ tree, onClose, onSubmit, onDelete }: EditTreeFormProps) {
-  const [formData, setFormData] = useState<BonsaiTree>({ ...tree });
+  const [formData, setFormData] = useState<BonsaiTree>({
+    ...tree,
+    notificationSettings: tree.notificationSettings || { hours: 9, minutes: 0 }
+  });
   const [addToCalendar, setAddToCalendar] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
@@ -92,7 +95,8 @@ export function EditTreeForm({ tree, onClose, onSubmit, onDelete }: EditTreeForm
         formData.name,
         type as MaintenanceType,
         enabled,
-        formData.lastMaintenance?.[type]
+        formData.lastMaintenance?.[type],
+        formData.notificationSettings
       );
     } catch (error) {
       debug.error('Failed to update notification:', error);
@@ -107,6 +111,13 @@ export function EditTreeForm({ tree, onClose, onSubmit, onDelete }: EditTreeForm
     }
   };
 
+  const handleNotificationTimeChange = (hours: number, minutes: number) => {
+    setFormData(prev => ({
+      ...prev,
+      notificationSettings: { hours, minutes }
+    }));
+  };
+  
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
       <div className="bg-white dark:bg-stone-800 rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
@@ -244,12 +255,14 @@ export function EditTreeForm({ tree, onClose, onSubmit, onDelete }: EditTreeForm
             </div>
           </div>
 
-          <MaintenanceSection
-            notifications={formData.notifications}
-            onNotificationChange={handleNotificationChange}
-            addToCalendar={addToCalendar}
-            onAddToCalendarChange={setAddToCalendar}
-          />
+      <MaintenanceSection
+        notifications={formData.notifications}
+        notificationTime={formData.notificationSettings}
+        onNotificationChange={handleNotificationChange}
+        onNotificationTimeChange={handleNotificationTimeChange}
+        addToCalendar={addToCalendar}
+        onAddToCalendarChange={setAddToCalendar}
+      />
 
           <div className="pt-4 border-t border-stone-200 dark:border-stone-700">
             <button

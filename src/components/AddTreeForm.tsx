@@ -28,6 +28,10 @@ export function AddTreeForm({ onClose, onSubmit }: AddTreeFormProps) {
       pruning: false,
       wiring: false,
       repotting: false
+    },
+    notificationSettings: {
+      hours: 9,
+      minutes: 0
     }
   });
   const [addToCalendar, setAddToCalendar] = useState(false);
@@ -96,6 +100,13 @@ export function AddTreeForm({ onClose, onSubmit }: AddTreeFormProps) {
     setFormData(prev => ({
       ...prev,
       species
+    }));
+  };
+
+  const handleNotificationTimeChange = (hours: number, minutes: number) => {
+    setFormData(prev => ({
+      ...prev,
+      notificationSettings: { hours, minutes }
     }));
   };
 
@@ -239,6 +250,7 @@ export function AddTreeForm({ onClose, onSubmit }: AddTreeFormProps) {
 
           <MaintenanceSection
             notifications={formData.notifications}
+            notificationTime={formData.notificationSettings}
             onNotificationChange={(type, value) => setFormData(prev => ({
               ...prev,
               notifications: {
@@ -246,6 +258,7 @@ export function AddTreeForm({ onClose, onSubmit }: AddTreeFormProps) {
                 [type]: value
               }
             }))}
+            onNotificationTimeChange={handleNotificationTimeChange}
             addToCalendar={addToCalendar}
             onAddToCalendarChange={setAddToCalendar}
           />
