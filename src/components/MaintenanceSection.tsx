@@ -86,23 +86,12 @@ export function MaintenanceSection({
 
       if (enabled) {
         if (!('Notification' in window)) {
-          setError('Notifications are not supported in this browser');
+          setError('Notifications are not supported');
           return;
         }
 
-        // Check if we're in standalone/installed PWA mode
-        const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
-                           (window.navigator as any).standalone ||
-                           document.referrer.includes('android-app://');
-
         if (Notification.permission === 'denied') {
-          setError(
-            'To enable notifications, please:\n' +
-            '1. Open app settings (long press app icon)\n' +
-            '2. Select App info/Settings\n' +
-            '3. Tap Notifications\n' +
-            '4. Enable notifications'
-          );
+          setError('Please enable notifications in your app settings');
           return;
         }
 
