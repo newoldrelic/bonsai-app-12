@@ -14,7 +14,8 @@ self.addEventListener('notificationclick', (event) => {
     const snoozeTime = new Date().getTime() + (60 * 60 * 1000);
     self.registration.showNotification(event.notification.title, {
       ...event.notification.options,
-      timestamp: snoozeTime
+      timestamp: snoozeTime,
+      data: event.notification.data
     });
   } else if (event.action === 'done') {
     // Send message to client to mark task as done
@@ -41,6 +42,29 @@ self.addEventListener('notificationclick', (event) => {
 });
 
 self.addEventListener('notificationclose', (event) => {
-  // Handle notification close if needed
+  // Log notification close for debugging
   console.log('Notification closed:', event.notification.tag);
+});
+
+self.addEventListener('push', (event) => {
+  if (!event.data) return;
+
+  try {
+    const data = event.data.json();
+    event.waitUntil(
+      self.registration.showNotification(data.title, {
+        body: data.message,
+        icon: '/bonsai-icon.png',
+        tag: data.tag,
+        data: data.data,
+        requireInteraction: true,
+        actions: [
+          { action: 'done', title: 'Mark as Done' },
+          { action: 'snooze', title: 'Snooze 1hr' }
+        ]
+      })
+    );
+  } catch (error) {
+    console.error('Error showing push notification:', error);
+  }
 });
