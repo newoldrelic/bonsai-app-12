@@ -32,27 +32,39 @@ export function MaintenanceSection({
   addToCalendar 
 }: MaintenanceSectionProps) {
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [initialized, setInitialized] = useState(false);
   const hasEnabledNotifications = Object.values(notifications).some(value => value);
 
+  // Initialize notification service
   useEffect(() => {
-    // Initialize notification service when component mounts
-    notificationService.init().catch(error => {
-      debug.error('Failed to initialize notifications:', error);
-      setError('Failed to initialize notifications. Please try again.');
-    });
+    const initNotifications = async () => {
+      try {
+        await notificationService.init();
+        setInitialized(true);
+        setError(null);
+      } catch (error) {
+        debug.error('Failed to initialize notifications:', error);
+        setError('Failed to initialize notifications. Please try again.');
+      }
+    };
+
+    initNotifications();
   }, []);
 
   const handleNotificationToggle = async (type: keyof NotificationPreferences, enabled: boolean) => {
+    if (!initialized) {
+      setError('Please wait while notifications are being initialized...');
+      return;
+    }
+
     setError(null);
-    setLoading(true);
 
     try {
       if (enabled) {
         // Request permission if enabling notifications
-        const permission = await Notification.requestPermission();
-        if (permission !== 'granted') {
-          setError('Please allow notifications to enable reminders');
+        const permissionGranted = await notificationService.requestPermission();
+        if (!permissionGranted) {
+          setError('Please allow notifications in your browser to enable reminders');
           return;
         }
       }
@@ -62,19 +74,16 @@ export function MaintenanceSection({
 
       // Send a welcome notification if enabling first notification
       if (enabled && !hasEnabledNotifications) {
-        new Notification('Bonsai Care Notifications Enabled', {
-          body: 'You will now receive maintenance reminders for your bonsai trees.',
-          icon: '/bonsai-icon.png'
-        });
+        if ('Notification' in window) {
+          new Notification('Bonsai Care Notifications Enabled', {
+            body: 'You will now receive maintenance reminders for your bonsai trees.',
+            icon: '/bonsai-icon.png'
+          });
+        }
       }
     } catch (error) {
       debug.error('Error handling notification toggle:', error);
       setError('Failed to update notification settings. Please try again.');
-      
-      // Revert the toggle if there was an error
-      onNotificationChange(type, !enabled);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -103,7 +112,7 @@ export function MaintenanceSection({
             label={label}
             description={description}
             icon={<span className="text-base">{icon}</span>}
-            disabled={loading}
+            disabled={!initialized}
           />
         ))}
 
