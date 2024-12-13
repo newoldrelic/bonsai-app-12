@@ -92,20 +92,35 @@ export function MaintenanceSection({
           return;
         }
 
-        // Explicitly request permission
-        const permission = await Notification.requestPermission();
-        
-        if (permission === 'granted') {
-          onNotificationChange(type, enabled);
-          setError(null);
-          
-          // Show a test notification
-          new Notification('Bonsai Care', {
-            body: 'Test notification - reminders are now enabled',
-            icon: '/bonsai-icon.png'
-          });
+        // Explicitly register service worker first
+        if ('serviceWorker' in navigator) {
+          try {
+            setError('Registering notification service...');
+            const registration = await navigator.serviceWorker.register('/notification-worker.js');
+            setError('Service registered, requesting permission...');
+            
+            // Explicitly request permission
+            const permission = await Notification.requestPermission();
+            
+            if (permission === 'granted') {
+              onNotificationChange(type, enabled);
+              setError(null);
+              
+              // Show a test notification
+              new Notification('Bonsai Care', {
+                body: 'Test notification - reminders are now enabled',
+                icon: '/bonsai-icon.png'
+              });
+            } else {
+              setError(`Notification permission ${permission}. Please enable notifications in your browser settings.`);
+              return;
+            }
+          } catch (swError) {
+            setError(`Service Worker Error: ${swError instanceof Error ? swError.message : 'Unknown error'}`);
+            return;
+          }
         } else {
-          setError(`Notification permission ${permission}. Please enable notifications in your browser settings.`);
+          setError('Service Workers are not supported in this browser');
           return;
         }
       } else {
@@ -115,7 +130,7 @@ export function MaintenanceSection({
     } catch (error) {
       setError(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-};
+  };
 
   const handleTimeChange = (hours: number, minutes: number) => {
     try {
