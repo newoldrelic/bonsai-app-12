@@ -79,44 +79,41 @@ export function MaintenanceSection({
 
   const handleNotificationToggle = async (type: keyof NotificationPreferences, enabled: boolean) => {
     try {
-      // For iOS, just update the toggle state
       if (isIOS()) {
         onNotificationChange(type, enabled);
         return;
       }
 
       if (enabled) {
-        // First, let's check what the current state is and show it to the user
-        const currentPermission = Notification.permission;
-        setError(`Current permission state: ${currentPermission}`);
-        await new Promise(resolve => setTimeout(resolve, 2000)); // Show state for 2 seconds
-
-        // Check if notifications are supported
         if (!('Notification' in window)) {
           setError('Notifications are not supported in this browser');
           return;
         }
 
-        // Initialize service
-        try {
-          await notificationService.init();
-        } catch (initError) {
-          setError(`Failed to initialize: ${initError instanceof Error ? initError.message : 'Unknown error'}`);
+        // Check if we're in standalone/installed PWA mode
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
+                           (window.navigator as any).standalone ||
+                           document.referrer.includes('android-app://');
+
+        if (Notification.permission === 'denied') {
+          setError(
+            'To enable notifications, please:\n' +
+            '1. Open app settings (long press app icon)\n' +
+            '2. Select App info/Settings\n' +
+            '3. Tap Notifications\n' +
+            '4. Enable notifications'
+          );
           return;
         }
 
         try {
-          // Always try to request permission
-          setError('Requesting permission...');
+          await notificationService.init();
           const permission = await Notification.requestPermission();
-          setError(`Permission request result: ${permission}`);
           
           if (permission === 'granted') {
-            // Success! Update state and clear error
             onNotificationChange(type, enabled);
             setError(null);
 
-            // Show welcome notification
             if (!hasEnabledNotifications) {
               new Notification('Bonsai Care Notifications Enabled', {
                 body: 'You will now receive maintenance reminders for your bonsai trees.',
@@ -124,13 +121,12 @@ export function MaintenanceSection({
               });
             }
           } else {
-            setError('Please enable notifications for this site in your browser settings');
+            setError('Please allow notifications when prompted');
           }
         } catch (error) {
-          setError(`Permission request error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          setError(`Failed to enable notifications: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
       } else {
-        // Disabling notifications - just update state
         onNotificationChange(type, enabled);
         setError(null);
       }
