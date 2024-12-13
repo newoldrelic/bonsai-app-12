@@ -82,6 +82,13 @@ export function EditTreeForm({ tree, onClose, onSubmit, onDelete }: EditTreeForm
 
   const handleNotificationChange = async (type: keyof typeof formData.notifications, enabled: boolean) => {
     try {
+      debug.info('EditTreeForm: Starting notification change:', { 
+        type, 
+        enabled,
+        treeId: tree.id,
+        currentNotifications: formData.notifications
+      });
+
       setFormData(prev => ({
         ...prev,
         notifications: {
@@ -89,7 +96,9 @@ export function EditTreeForm({ tree, onClose, onSubmit, onDelete }: EditTreeForm
           [type]: enabled
         }
       }));
+      debug.info('EditTreeForm: Local state updated');
 
+      debug.info('EditTreeForm: Calling updateMaintenanceSchedule...');
       await notificationService.updateMaintenanceSchedule(
         tree.id,
         formData.name,
@@ -98,8 +107,18 @@ export function EditTreeForm({ tree, onClose, onSubmit, onDelete }: EditTreeForm
         formData.lastMaintenance?.[type],
         formData.notificationSettings
       );
+      debug.info('EditTreeForm: updateMaintenanceSchedule completed successfully');
+
     } catch (error) {
-      debug.error('Failed to update notification:', error);
+      debug.error('EditTreeForm: Failed to update notification:', {
+        error,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        type,
+        enabled,
+        treeId: tree.id,
+        currentNotifications: formData.notifications
+      });
+      
       // Revert the change if update fails
       setFormData(prev => ({
         ...prev,
@@ -109,7 +128,7 @@ export function EditTreeForm({ tree, onClose, onSubmit, onDelete }: EditTreeForm
         }
       }));
     }
-  };
+};
 
   const handleNotificationTimeChange = (hours: number, minutes: number) => {
     setFormData(prev => ({

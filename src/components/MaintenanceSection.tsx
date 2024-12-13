@@ -59,40 +59,56 @@ export function MaintenanceSection({
 
   const handleNotificationToggle = async (type: keyof NotificationPreferences, enabled: boolean) => {
     try {
+      debug.info('MaintenanceSection: Starting notification toggle:', { type, enabled, hasEnabledNotifications });
+      
       if (enabled) {
-        // Request permission if enabling notifications
+        debug.info('MaintenanceSection: Requesting permission...');
         const permissionGranted = await notificationService.requestPermission();
+        debug.info('MaintenanceSection: Permission result:', { 
+          permissionGranted, 
+          currentPermission: Notification.permission 
+        });
+        
         if (!permissionGranted) {
-          // Don't show error for permission denial
           if (Notification.permission === 'denied') {
-            debug.info('Notification permission denied');
+            debug.info('MaintenanceSection: Notification permission denied');
             return;
           }
           return;
         }
       }
 
-      // Update the notification state through parent component
+      debug.info('MaintenanceSection: Calling parent onNotificationChange...');
       onNotificationChange(type, enabled);
+      debug.info('MaintenanceSection: Parent onNotificationChange completed');
+      
       setError(null);
 
-      // Only show welcome notification on first enable
       if (enabled && !hasEnabledNotifications && Notification.permission === 'granted') {
+        debug.info('MaintenanceSection: Creating welcome notification...');
         new Notification('Bonsai Care Notifications Enabled', {
           body: 'You will now receive maintenance reminders for your bonsai trees.',
           icon: '/bonsai-icon.png'
         });
+        debug.info('MaintenanceSection: Welcome notification created');
       }
     } catch (error) {
-      debug.error('Error handling notification toggle:', error);
-      // Only show error for actual failures, not permission-related issues
+      debug.error('MaintenanceSection: Error in handleNotificationToggle:', {
+        error,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        type,
+        enabled,
+        hasEnabledNotifications,
+        currentPermission: Notification.permission
+      });
+      
       if (error instanceof Error && 
           !error.message.includes('permission') && 
           !error.message.includes('support')) {
         setError('Failed to update notification settings. Please try again.');
       }
     }
-  };
+};
 
   const handleTimeChange = (hours: number, minutes: number) => {
     try {
