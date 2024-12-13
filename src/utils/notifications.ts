@@ -76,6 +76,7 @@ export async function registerServiceWorker() {
   }
 
   try {
+    // Only register the service worker, don't request permissions
     const registration = await navigator.serviceWorker.register('/notification-worker.js');
     debug.info('Service Worker registered:', registration);
     return registration;
