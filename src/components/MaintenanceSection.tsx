@@ -86,60 +86,53 @@ export function MaintenanceSection({
       }
 
       if (enabled) {
+        // First, let's check what the current state is and show it to the user
+        const currentPermission = Notification.permission;
+        setError(`Current permission state: ${currentPermission}`);
+        await new Promise(resolve => setTimeout(resolve, 2000)); // Show state for 2 seconds
+
         // Check if notifications are supported
         if (!('Notification' in window)) {
           setError('Notifications are not supported in this browser');
           return;
         }
 
-        // Initialize service first
+        // Initialize service
         try {
           await notificationService.init();
         } catch (initError) {
-          setError(`Failed to initialize notifications: ${initError instanceof Error ? initError.message : 'Unknown error'}`);
+          setError(`Failed to initialize: ${initError instanceof Error ? initError.message : 'Unknown error'}`);
           return;
         }
 
-        // Check current permission state
-        if (Notification.permission === 'denied') {
-          setError('Notifications are currently blocked in your browser settings');
-          return;
-        }
-
-        // For 'default' state, show custom confirmation
-        if (Notification.permission === 'default') {
-          const confirmed = window.confirm(
-            'Would you like to receive maintenance reminders for your bonsai? ' +
-            'This will help you keep track of watering, pruning, and other care tasks.'
-          );
-
-          if (!confirmed) {
-            return;
-          }
-
-          // User confirmed, now request browser permission
-          const permission = await Notification.requestPermission();
-          if (permission !== 'granted') {
-            setError('Notification permission was not granted');
-            return;
-          }
-        }
-      }
-
-      // If we get here, either permissions are granted or we're disabling notifications
-      onNotificationChange(type, enabled);
-      setError(null);
-
-      // Show welcome notification if this is the first enabled notification
-      if (enabled && !hasEnabledNotifications && Notification.permission === 'granted') {
         try {
-          new Notification('Bonsai Care Notifications Enabled', {
-            body: 'You will now receive maintenance reminders for your bonsai trees.',
-            icon: '/bonsai-icon.png'
-          });
-        } catch (notifError) {
-          debug.error('Failed to show welcome notification:', notifError);
+          // Always try to request permission
+          setError('Requesting permission...');
+          const permission = await Notification.requestPermission();
+          setError(`Permission request result: ${permission}`);
+          
+          if (permission === 'granted') {
+            // Success! Update state and clear error
+            onNotificationChange(type, enabled);
+            setError(null);
+
+            // Show welcome notification
+            if (!hasEnabledNotifications) {
+              new Notification('Bonsai Care Notifications Enabled', {
+                body: 'You will now receive maintenance reminders for your bonsai trees.',
+                icon: '/bonsai-icon.png'
+              });
+            }
+          } else {
+            setError('Please enable notifications for this site in your browser settings');
+          }
+        } catch (error) {
+          setError(`Permission request error: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
+      } else {
+        // Disabling notifications - just update state
+        onNotificationChange(type, enabled);
+        setError(null);
       }
     } catch (error) {
       debug.error('Error in handleNotificationToggle:', error);
