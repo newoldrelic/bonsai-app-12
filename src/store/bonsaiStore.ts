@@ -66,7 +66,8 @@ export const useBonsaiStore = create<BonsaiStore>((set, get) => {
         next: (snapshot) => {
           const trees = snapshot.docs.map(doc => ({
             ...doc.data(),
-            id: doc.id
+            id: doc.id,
+            lastMaintenance: doc.data().lastMaintenance || {} // Ensure lastMaintenance exists
           })) as BonsaiTree[];
           set({ trees, loading: false, offline: false });
           logAnalyticsEvent('trees_sync_success');
@@ -139,7 +140,8 @@ export const useBonsaiStore = create<BonsaiStore>((set, get) => {
         const snapshot = await getDocs(q);
         const trees = snapshot.docs.map(doc => ({
           ...doc.data(),
-          id: doc.id
+          id: doc.id,
+          lastMaintenance: doc.data().lastMaintenance || {} // Ensure lastMaintenance exists
         })) as BonsaiTree[];
         set({ trees, loading: false, offline: false });
         logAnalyticsEvent('trees_loaded');
@@ -219,6 +221,7 @@ export const useBonsaiStore = create<BonsaiStore>((set, get) => {
         const newLog = { ...log, id: crypto.randomUUID() };
         const updatedLogs = [...tree.maintenanceLogs, newLog];
 
+        // Update both maintenanceLogs and lastMaintenance
         const updates = {
           maintenanceLogs: updatedLogs,
           lastMaintenance: {
@@ -227,7 +230,10 @@ export const useBonsaiStore = create<BonsaiStore>((set, get) => {
           }
         };
 
-        await updateDoc(doc(db, 'trees', treeId), updates);
+        debug.info('Updating tree with maintenance log:', { treeId, updates });
+        
+        const treeRef = doc(db, 'trees', treeId);
+        await updateDoc(treeRef, updates);
         await waitForPendingWrites(db);
 
         // Reschedule notification for this maintenance type
@@ -257,8 +263,19 @@ export const useBonsaiStore = create<BonsaiStore>((set, get) => {
     updateTree: async (id, updates) => {
       try {
         set({ loading: true, error: null });
-        await updateDoc(doc(db, 'trees', id), updates);
+        
+        // Ensure lastMaintenance field exists if not present
+        if (!updates.lastMaintenance) {
+          const tree = get().trees.find(t => t.id === id);
+          if (tree) {
+            updates.lastMaintenance = tree.lastMaintenance || {};
+          }
+        }
+
+        const treeRef = doc(db, 'trees', id);
+        await updateDoc(treeRef, updates);
         await waitForPendingWrites(db);
+        
         set({ loading: false, error: null, offline: false });
         logAnalyticsEvent('tree_updated');
       } catch (error: any) {

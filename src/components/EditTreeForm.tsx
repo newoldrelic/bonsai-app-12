@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { X, AlertTriangle, Trash2, XCircle } from 'lucide-react';
+import { X, AlertCircle, Trash2, XCircle } from 'lucide-react';
 import type { BonsaiStyle, BonsaiTree } from '../types';
 import { ImageUpload } from './ImageUpload';
 import { StyleSelector } from './StyleSelector';
 import { MaintenanceSection } from './MaintenanceSection';
 import { generateMaintenanceEvents, downloadCalendarFile } from '../utils/calendar';
+import { notificationService } from '../services/notificationService';
+import { debug } from '../utils/debug';
 
 interface EditTreeFormProps {
   tree: BonsaiTree;
@@ -17,6 +19,7 @@ export function EditTreeForm({ tree, onClose, onSubmit, onDelete }: EditTreeForm
   const [formData, setFormData] = useState<BonsaiTree>({ ...tree });
   const [addToCalendar, setAddToCalendar] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [imageError, setImageError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,27 +33,77 @@ export function EditTreeForm({ tree, onClose, onSubmit, onDelete }: EditTreeForm
         const calendarContent = await generateMaintenanceEvents(formData, selectedTypes);
         downloadCalendarFile(calendarContent, `${formData.name}-maintenance.ics`);
       } catch (error) {
-        console.error('Failed to generate calendar events:', error);
+        debug.error('Failed to generate calendar events:', error);
       }
+    }
+
+    // Update notification schedules for each maintenance type
+    try {
+      const notificationChanges = Object.entries(formData.notifications).filter(
+        ([type, enabled]) => enabled !== tree.notifications[type as keyof typeof tree.notifications]
+      );
+
+      for (const [type, enabled] of notificationChanges) {
+        await notificationService.updateMaintenanceSchedule(
+          tree.id,
+          formData.name,
+          type as MaintenanceType,
+          enabled,
+          formData.lastMaintenance?.[type]
+        );
+      }
+    } catch (error) {
+      debug.error('Failed to update notification schedules:', error);
     }
 
     onSubmit(tree.id, formData);
   };
 
-  const handleImageCapture = async (file: File) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setFormData(prev => ({
-        ...prev,
-        images: [...prev.images, reader.result as string]
-      }));
-    };
-    reader.readAsDataURL(file);
+  const handleImageCapture = (dataUrl: string) => {
+    setImageError(null);
+    setFormData(prev => ({
+      ...prev,
+      images: [...prev.images, dataUrl]
+    }));
+  };
+
+  const handleImageError = (error: string) => {
+    setImageError(error);
   };
 
   const handleDelete = () => {
     if (onDelete) {
       onDelete(tree.id);
+    }
+  };
+
+  const handleNotificationChange = async (type: keyof typeof formData.notifications, enabled: boolean) => {
+    try {
+      setFormData(prev => ({
+        ...prev,
+        notifications: {
+          ...prev.notifications,
+          [type]: enabled
+        }
+      }));
+
+      await notificationService.updateMaintenanceSchedule(
+        tree.id,
+        formData.name,
+        type as MaintenanceType,
+        enabled,
+        formData.lastMaintenance?.[type]
+      );
+    } catch (error) {
+      debug.error('Failed to update notification:', error);
+      // Revert the change if update fails
+      setFormData(prev => ({
+        ...prev,
+        notifications: {
+          ...prev.notifications,
+          [type]: !enabled
+        }
+      }));
     }
   };
 
@@ -152,7 +205,17 @@ export function EditTreeForm({ tree, onClose, onSubmit, onDelete }: EditTreeForm
                 <label className="block text-sm font-medium text-stone-700 dark:text-stone-300 mb-1">
                   Tree Photo
                 </label>
-                <ImageUpload onImageCapture={handleImageCapture} />
+                <ImageUpload 
+                  onImageCapture={handleImageCapture}
+                  onError={handleImageError}
+                />
+                
+                {imageError && (
+                  <div className="mt-2 flex items-start space-x-2 text-red-600 dark:text-red-400 text-sm">
+                    <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    <span>{imageError}</span>
+                  </div>
+                )}
                 
                 {formData.images.length > 0 && (
                   <div className="mt-3 grid grid-cols-2 gap-2">
@@ -183,13 +246,7 @@ export function EditTreeForm({ tree, onClose, onSubmit, onDelete }: EditTreeForm
 
           <MaintenanceSection
             notifications={formData.notifications}
-            onNotificationChange={(type, value) => setFormData(prev => ({
-              ...prev,
-              notifications: {
-                ...prev.notifications,
-                [type]: value
-              }
-            }))}
+            onNotificationChange={handleNotificationChange}
             addToCalendar={addToCalendar}
             onAddToCalendarChange={setAddToCalendar}
           />
@@ -210,7 +267,7 @@ export function EditTreeForm({ tree, onClose, onSubmit, onDelete }: EditTreeForm
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[60]">
           <div className="bg-white dark:bg-stone-800 rounded-lg shadow-xl max-w-md w-full p-6">
             <div className="flex items-center space-x-3 text-red-500 mb-4">
-              <AlertTriangle className="w-6 h-6" />
+              <AlertCircle className="w-6 h-6" />
               <h3 className="text-lg font-semibold">Delete Tree</h3>
             </div>
             <p className="text-stone-600 dark:text-stone-300 mb-6">
