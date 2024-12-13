@@ -51,14 +51,12 @@ export function MaintenanceSection({
   React.useEffect(() => {
     const initNotifications = async () => {
       try {
-        // Don't initialize notifications on iOS
         if (!isIOS()) {
           await notificationService.init();
         }
         setInitialized(true);
         setError(null);
       } catch (error) {
-        // Only show error for non-permission related issues
         if (error instanceof Error && 
             !error.message.includes('permission') && 
             !error.message.includes('support')) {
@@ -72,24 +70,27 @@ export function MaintenanceSection({
     initNotifications();
   }, []);
 
+  // Enable calendar by default on iOS when notifications are enabled
+  React.useEffect(() => {
+    if (isIOS() && hasEnabledNotifications && !addToCalendar) {
+      onAddToCalendarChange(true);
+    }
+  }, [isIOS(), hasEnabledNotifications, addToCalendar, onAddToCalendarChange]);
+
   const handleNotificationToggle = async (type: keyof NotificationPreferences, enabled: boolean) => {
     try {
+      // For iOS, just update the toggle state
       if (isIOS()) {
-        // For iOS users, enable calendar by default when they try to enable notifications
-        if (enabled) {
-          onAddToCalendarChange(true);
-        }
+        onNotificationChange(type, enabled);
         return;
       }
 
+      // For other platforms, handle notifications
       if (enabled) {
-        // On Android, ensure service worker is ready before first notification
         if (!hasEnabledNotifications) {
           try {
-            // Add a small delay before the first permission request
             await new Promise(resolve => setTimeout(resolve, 100));
             
-            // Try to register/ensure service worker is ready
             if ('serviceWorker' in navigator) {
               await navigator.serviceWorker.ready;
             }
@@ -108,12 +109,10 @@ export function MaintenanceSection({
         }
       }
 
-      // Update the notification state through parent component
       onNotificationChange(type, enabled);
       setError(null);
 
       if (enabled && !hasEnabledNotifications && Notification.permission === 'granted') {
-        // Small delay before first notification on Android
         await new Promise(resolve => setTimeout(resolve, 100));
         new Notification('Bonsai Care Notifications Enabled', {
           body: 'You will now receive maintenance reminders for your bonsai trees.',
@@ -146,7 +145,7 @@ export function MaintenanceSection({
     <div>
       {isIOS() && (
         <div className="mb-4 text-sm bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 p-3 rounded-lg">
-          Browser notifications are not available on iOS devices. Calendar reminders will be enabled by default.
+          Browser notifications are not available on iOS devices. Your selected maintenance reminders will be added to your calendar instead.
         </div>
       )}
       <div className="flex items-center space-x-2 mb-4">
@@ -164,52 +163,50 @@ export function MaintenanceSection({
           </div>
         )}
 
-        {/* Only show notification toggles if not on iOS */}
-        {!isIOS() && (
-          <>
-            {NOTIFICATION_TYPES.map(({ id, label, description, icon }) => (
-              <Toggle
-                key={id}
-                checked={notifications[id as keyof typeof notifications]}
-                onChange={(checked) => handleNotificationToggle(id as keyof NotificationPreferences, checked)}
-                label={label}
-                description={description}
-                icon={<span className="text-base">{icon}</span>}
-              />
-            ))}
+        {/* Show toggles for all platforms */}
+        {NOTIFICATION_TYPES.map(({ id, label, description, icon }) => (
+          <Toggle
+            key={id}
+            checked={notifications[id as keyof typeof notifications]}
+            onChange={(checked) => handleNotificationToggle(id as keyof NotificationPreferences, checked)}
+            label={label}
+            description={description}
+            icon={<span className="text-base">{icon}</span>}
+          />
+        ))}
 
-            {hasEnabledNotifications && (
-              <div className="border-t border-stone-200 dark:border-stone-700 pt-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium text-stone-700 dark:text-stone-300">
-                    Notification Time
-                  </label>
-                  <NotificationTimeSelector
-                    value={notificationTime}
-                    onChange={handleTimeChange}
-                  />
-                </div>
-                <p className="text-xs text-stone-500 dark:text-stone-400">
-                  All maintenance reminders will be sent at this time
-                </p>
-              </div>
-            )}
-          </>
+        {hasEnabledNotifications && (
+          <div className="border-t border-stone-200 dark:border-stone-700 pt-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium text-stone-700 dark:text-stone-300">
+                {isIOS() ? 'Calendar Event Time' : 'Notification Time'}
+              </label>
+              <NotificationTimeSelector
+                value={notificationTime}
+                onChange={handleTimeChange}
+              />
+            </div>
+            <p className="text-xs text-stone-500 dark:text-stone-400">
+              {isIOS() 
+                ? 'All calendar events will be scheduled at this time'
+                : 'All maintenance reminders will be sent at this time'}
+            </p>
+          </div>
         )}
 
-        {/* Show calendar option with modified text based on platform */}
-        <div className={`${!isIOS() ? 'border-t border-stone-200 dark:border-stone-700 pt-4' : ''}`}>
-          <Toggle
-            checked={isIOS() ? true : addToCalendar}
-            onChange={onAddToCalendarChange}
-            label="Add to Calendar"
-            description={isIOS() 
-              ? "Download an .ics file to set up maintenance reminders in your calendar"
-              : "Download an .ics file to add maintenance schedules to your calendar"}
-            icon={<Calendar className="w-4 h-4 text-bonsai-green" />}
-            disabled={isIOS()}
-          />
-        </div>
+        {/* Show calendar option (auto-enabled for iOS) */}
+        {(hasEnabledNotifications || isIOS()) && (
+          <div className="border-t border-stone-200 dark:border-stone-700 pt-4">
+            <Toggle
+              checked={isIOS() ? true : addToCalendar}
+              onChange={onAddToCalendarChange}
+              label="Add to Calendar"
+              description="Download an .ics file to add maintenance schedules to your calendar"
+              icon={<Calendar className="w-4 h-4 text-bonsai-green" />}
+              disabled={isIOS()}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
