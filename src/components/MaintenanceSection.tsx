@@ -86,48 +86,57 @@ export function MaintenanceSection({
       }
 
       if (enabled) {
-        // Check if notification API is available
+        // Try to initialize notification service first
+        try {
+          setError('Initializing notifications...');
+          await notificationService.init();
+          setError(null);
+        } catch (initError) {
+          setError(`Failed to initialize notifications: ${initError instanceof Error ? initError.message : 'Unknown error'}`);
+          return;
+        }
+
+        // First check if notifications are supported
         if (!('Notification' in window)) {
           setError('Notifications are not supported in this browser');
           return;
         }
 
-        // Explicitly register service worker first
-        if ('serviceWorker' in navigator) {
-          try {
-            setError('Registering notification service...');
-            const registration = await navigator.serviceWorker.register('/notification-worker.js');
-            setError('Service registered, requesting permission...');
-            
-            // Explicitly request permission
-            const permission = await Notification.requestPermission();
-            
-            if (permission === 'granted') {
-              onNotificationChange(type, enabled);
-              setError(null);
-              
-              // Show a test notification
-              new Notification('Bonsai Care', {
-                body: 'Test notification - reminders are now enabled',
-                icon: '/bonsai-icon.png'
-              });
-            } else {
-              setError(`Notification permission ${permission}. Please enable notifications in your browser settings.`);
-              return;
-            }
-          } catch (swError) {
-            setError(`Service Worker Error: ${swError instanceof Error ? swError.message : 'Unknown error'}`);
+        // Directly request permission from the browser
+        try {
+          setError('Requesting permission...');
+          const permission = await Notification.requestPermission();
+          
+          if (permission === 'granted') {
+            setError(null);
+          } else {
+            setError('Please enable notifications in your browser settings');
             return;
           }
-        } else {
-          setError('Service Workers are not supported in this browser');
+        } catch (permError) {
+          setError(`Permission error: ${permError instanceof Error ? permError.message : 'Unknown error'}`);
           return;
         }
-      } else {
-        onNotificationChange(type, enabled);
-        setError(null);
+      }
+
+      // Update the notification state
+      onNotificationChange(type, enabled);
+      setError(null);
+
+      // Show welcome notification if this is the first enabled notification
+      if (enabled && !hasEnabledNotifications && Notification.permission === 'granted') {
+        try {
+          new Notification('Bonsai Care Notifications Enabled', {
+            body: 'You will now receive maintenance reminders for your bonsai trees.',
+            icon: '/bonsai-icon.png'
+          });
+        } catch (notifError) {
+          // Don't block the toggle if welcome notification fails
+          debug.error('Failed to show welcome notification:', notifError);
+        }
       }
     } catch (error) {
+      debug.error('Error in handleNotificationToggle:', error);
       setError(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };

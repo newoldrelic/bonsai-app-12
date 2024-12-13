@@ -50,16 +50,10 @@ class NotificationService {
     try {
       await this.ensureInitialized();
 
-      if (Notification.permission === 'granted') {
-        return true;
-      }
-
-      if (Notification.permission === 'denied') {
-        return false;
-      }
-
+      // Always try to request permission first
       const permission = await Notification.requestPermission();
       return permission === 'granted';
+      
     } catch (error) {
       debug.error('Failed to request notification permission:', error);
       return false;
