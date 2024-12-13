@@ -6,6 +6,44 @@ import type { NotificationPreferences } from '../types';
 import { notificationService } from '../services/notificationService';
 import { debug } from '../utils/debug';
 
+const NotificationConsentModal = ({ 
+  onConfirm, 
+  onCancel 
+}: { 
+  onConfirm: () => void; 
+  onCancel: () => void; 
+}) => {
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[60]">
+      <div className="bg-white dark:bg-stone-800 rounded-lg shadow-xl max-w-md w-full p-6">
+        <div className="flex items-center space-x-3 text-bonsai-green mb-4">
+          <Bell className="w-6 h-6" />
+          <h3 className="text-lg font-semibold">Enable Maintenance Reminders</h3>
+        </div>
+        <p className="text-stone-600 dark:text-stone-300 mb-4">
+          Get timely reminders for watering, pruning, and other essential bonsai care tasks. Never miss an important maintenance task again.
+        </p>
+        <div className="flex justify-end space-x-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-4 py-2 text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700 rounded-lg transition-colors"
+          >
+            Not Now
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="px-4 py-2 bg-bonsai-green text-white rounded-lg hover:bg-bonsai-moss transition-colors"
+          >
+            Enable Reminders
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const isIOS = () => {
   return [
     'iPad Simulator',
@@ -45,6 +83,9 @@ export function MaintenanceSection({
 }: MaintenanceSectionProps) {
   const [error, setError] = useState<string | null>(null);
   const [initialized, setInitialized] = useState(false);
+  const [showConsentModal, setShowConsentModal] = useState(false);
+  const [pendingToggleType, setPendingToggleType] = useState<keyof NotificationPreferences | null>(null);
+  
   const hasEnabledNotifications = Object.values(notifications).some(value => value);
 
   // Initialize notification service
@@ -70,12 +111,41 @@ export function MaintenanceSection({
     initNotifications();
   }, []);
 
-  // Enable calendar by default on iOS when notifications are enabled
-  React.useEffect(() => {
-    if (isIOS() && hasEnabledNotifications && !addToCalendar) {
-      onAddToCalendarChange(true);
+  const enableNotification = async (type: keyof NotificationPreferences) => {
+    try {
+      await notificationService.init();
+      const permission = await Notification.requestPermission();
+      
+      if (permission === 'granted') {
+        onNotificationChange(type, true);
+        setError(null);
+
+        if (!hasEnabledNotifications) {
+          new Notification('Bonsai Care Notifications Enabled', {
+            body: 'You will now receive maintenance reminders for your bonsai trees.',
+            icon: '/bonsai-icon.png'
+          });
+        }
+      } else {
+        setError('Please allow notifications when prompted');
+      }
+    } catch (error) {
+      setError(`Failed to enable notifications: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-  }, [isIOS(), hasEnabledNotifications, addToCalendar, onAddToCalendarChange]);
+  };
+
+  const handleConsentConfirm = async () => {
+    if (pendingToggleType) {
+      await enableNotification(pendingToggleType);
+    }
+    setShowConsentModal(false);
+    setPendingToggleType(null);
+  };
+
+  const handleConsentCancel = () => {
+    setShowConsentModal(false);
+    setPendingToggleType(null);
+  };
 
   const handleNotificationToggle = async (type: keyof NotificationPreferences, enabled: boolean) => {
     try {
@@ -90,6 +160,7 @@ export function MaintenanceSection({
           return;
         }
 
+        // If permission is denied, show settings instructions
         if (Notification.permission === 'denied') {
           setError(
             'To enable notifications:\n' +
@@ -101,27 +172,17 @@ export function MaintenanceSection({
           return;
         }
 
-        try {
-          await notificationService.init();
-          const permission = await Notification.requestPermission();
-          
-          if (permission === 'granted') {
-            onNotificationChange(type, enabled);
-            setError(null);
-
-            if (!hasEnabledNotifications) {
-              new Notification('Bonsai Care Notifications Enabled', {
-                body: 'You will now receive maintenance reminders for your bonsai trees.',
-                icon: '/bonsai-icon.png'
-              });
-            }
-          } else {
-            setError('Please allow notifications when prompted');
-          }
-        } catch (error) {
-          setError(`Failed to enable notifications: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        // If permission hasn't been granted yet, show our custom modal
+        if (Notification.permission === 'default') {
+          setPendingToggleType(type);
+          setShowConsentModal(true);
+          return;
         }
+
+        // Permission is already granted, proceed with enabling
+        await enableNotification(type);
       } else {
+        // Disabling notifications - just update state
         onNotificationChange(type, enabled);
         setError(null);
       }
@@ -159,13 +220,20 @@ export function MaintenanceSection({
 
       <div className="space-y-4 bg-stone-50 dark:bg-stone-800/50 rounded-lg p-4">
         {error && (
-          <div className="flex items-start space-x-2 text-red-600 dark:text-red-400 text-sm bg-red-50 dark:bg-red-900/20 p-3 rounded-lg">
-            <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-            <span>{error}</span>
+          <div className="flex items-start space-x-2 text-stone-600 dark:text-stone-300 text-sm bg-stone-100 dark:bg-stone-700/50 p-4 rounded-lg">
+            <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0 text-bonsai-green" />
+            <div className="space-y-2">
+              <p className="font-medium">Enable Notifications</p>
+              <ul className="list-decimal ml-4 space-y-1">
+                <li>Long press the Bonsai Care app icon on your home screen</li>
+                <li>Tap "App info" or ⓘ</li>
+                <li>Tap "Notifications"</li>
+                <li>Toggle notifications on</li>
+              </ul>
+            </div>
           </div>
         )}
 
-        {/* Show toggles for all platforms */}
         {NOTIFICATION_TYPES.map(({ id, label, description, icon }) => (
           <Toggle
             key={id}
@@ -210,6 +278,13 @@ export function MaintenanceSection({
           </div>
         )}
       </div>
+
+      {showConsentModal && (
+        <NotificationConsentModal
+          onConfirm={handleConsentConfirm}
+          onCancel={handleConsentCancel}
+        />
+      )}
     </div>
   );
 }
