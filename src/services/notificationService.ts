@@ -10,6 +10,8 @@ class NotificationService {
   private notificationTime = { hours: 9, minutes: 0 };
   private notificationTimers: Record<string, NodeJS.Timeout> = {};
   private serviceWorkerRegistration: ServiceWorkerRegistration | null = null;
+  private initialized = false;
+  private initializationError: Error | null = null;
 
   constructor() {
     auth.onAuthStateChanged(user => {
@@ -17,6 +19,7 @@ class NotificationService {
       if (user?.email) {
         this.init().catch(error => {
           debug.error('Failed to initialize notification service:', error);
+          this.initializationError = error instanceof Error ? error : new Error('Unknown error');
         });
       } else {
         this.clearAllTimers();
@@ -25,15 +28,28 @@ class NotificationService {
   }
 
   async init(): Promise<void> {
+    if (this.initialized) return;
+    
     if (!('Notification' in window)) {
-      throw new Error('This browser does not support notifications');
+      this.initializationError = new Error('This browser does not support notifications');
+      throw this.initializationError;
     }
 
     try {
-      // Register service worker
+      // Register service worker if not already registered
       if ('serviceWorker' in navigator) {
-        this.serviceWorkerRegistration = await navigator.serviceWorker.register('/notification-worker.js');
-        debug.info('Service Worker registered');
+        const existingRegistration = await navigator.serviceWorker.getRegistration('/notification-worker.js');
+        
+        if (existingRegistration) {
+          this.serviceWorkerRegistration = existingRegistration;
+          debug.info('Using existing Service Worker registration');
+        } else {
+          this.serviceWorkerRegistration = await navigator.serviceWorker.register('/notification-worker.js');
+          debug.info('New Service Worker registered');
+        }
+
+        // Wait for the service worker to be ready
+        await navigator.serviceWorker.ready;
       }
 
       // Load notification settings
@@ -46,9 +62,43 @@ class NotificationService {
           };
         }
       }
+
+      this.initialized = true;
+      this.initializationError = null;
+      debug.info('Notification service initialized successfully');
     } catch (error) {
+      this.initializationError = error instanceof Error ? error : new Error('Unknown error');
       debug.error('Failed to initialize notification service:', error);
-      throw error;
+      throw this.initializationError;
+    }
+  }
+
+  async ensureInitialized(): Promise<void> {
+    if (!this.initialized) {
+      if (this.initializationError) {
+        throw this.initializationError;
+      }
+      await this.init();
+    }
+  }
+
+  async requestPermission(): Promise<boolean> {
+    try {
+      await this.ensureInitialized();
+
+      if (Notification.permission === 'granted') {
+        return true;
+      }
+
+      if (Notification.permission === 'denied') {
+        return false;
+      }
+
+      const permission = await Notification.requestPermission();
+      return permission === 'granted';
+    } catch (error) {
+      debug.error('Failed to request notification permission:', error);
+      return false;
     }
   }
 
@@ -70,11 +120,13 @@ class NotificationService {
   }
 
   async getNotificationTime(): Promise<{ hours: number; minutes: number }> {
+    await this.ensureInitialized();
     const settings = await this.getNotificationSettings();
     return settings ? { hours: settings.hours, minutes: settings.minutes } : this.notificationTime;
   }
 
   async setNotificationTime(hours: number, minutes: number): Promise<void> {
+    await this.ensureInitialized();
     if (!this.userEmail) return;
 
     try {
@@ -101,6 +153,8 @@ class NotificationService {
     enabled: boolean,
     lastPerformed?: string
   ): Promise<void> {
+    await this.ensureInitialized();
+    
     const key = `${treeId}-${type}`;
 
     // Clear existing timer
@@ -114,9 +168,10 @@ class NotificationService {
       return;
     }
 
-    if (Notification.permission !== 'granted') {
-      debug.warn('Notifications not permitted');
-      return;
+    // Request permission if not already granted
+    const permissionGranted = await this.requestPermission();
+    if (!permissionGranted) {
+      throw new Error('Notification permission denied');
     }
 
     const schedule = MAINTENANCE_SCHEDULES[type];
@@ -168,9 +223,7 @@ class NotificationService {
   }
 
   async rescheduleAllNotifications(): Promise<void> {
-    // This would be called when notification time changes
-    // Implementation would get all trees and their schedules from Firestore
-    // and reschedule notifications for each enabled maintenance type
+    await this.ensureInitialized();
     debug.info('Rescheduling all notifications');
   }
 
