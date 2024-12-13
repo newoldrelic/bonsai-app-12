@@ -8,6 +8,8 @@ import { MaintenanceSection } from './MaintenanceSection';
 import { generateMaintenanceEvents, downloadCalendarFile } from '../utils/calendar';
 import { requestNotificationPermission, areNotificationsEnabled } from '../utils/notifications';
 import { useSubscriptionStore } from '../store/subscriptionStore';
+import { notificationService } from '../services/notificationService';
+import { debug } from '../utils/debug';
 
 interface AddTreeFormProps {
   onClose: () => void;
@@ -77,7 +79,7 @@ export function AddTreeForm({ onClose, onSubmit }: AddTreeFormProps) {
         );
         downloadCalendarFile(calendarContent, `${formData.name}-maintenance.ics`);
       } catch (error) {
-        console.error('Failed to generate calendar events:', error);
+        debug.error('Failed to generate calendar events:', error);
       }
     }
 
@@ -101,6 +103,48 @@ export function AddTreeForm({ onClose, onSubmit }: AddTreeFormProps) {
       ...prev,
       species
     }));
+  };
+
+  const handleNotificationChange = async (type: keyof typeof formData.notifications, enabled: boolean) => {
+    try {
+      // Update state optimistically
+      setFormData(prev => ({
+        ...prev,
+        notifications: {
+          ...prev.notifications,
+          [type]: enabled
+        }
+      }));
+
+      // Only attempt to initialize notifications if enabling
+      if (enabled) {
+        await notificationService.updateMaintenanceSchedule(
+          crypto.randomUUID(), // Temporary ID since tree isn't created yet
+          formData.name,
+          type as MaintenanceType,
+          enabled,
+          undefined,
+          formData.notificationSettings
+        );
+      }
+    } catch (error) {
+      // Revert the change if there was an error
+      setFormData(prev => ({
+        ...prev,
+        notifications: {
+          ...prev.notifications,
+          [type]: !enabled
+        }
+      }));
+      
+      // Only show error if it's not a permission-related issue
+      if (error instanceof Error && 
+          error.message !== 'Notification permission denied' &&
+          !error.message.includes('permission') &&
+          !error.message.includes('support')) {
+        debug.error('Failed to update notification:', error);
+      }
+    }
   };
 
   const handleNotificationTimeChange = (hours: number, minutes: number) => {
@@ -251,13 +295,7 @@ export function AddTreeForm({ onClose, onSubmit }: AddTreeFormProps) {
           <MaintenanceSection
             notifications={formData.notifications}
             notificationTime={formData.notificationSettings}
-            onNotificationChange={(type, value) => setFormData(prev => ({
-              ...prev,
-              notifications: {
-                ...prev.notifications,
-                [type]: value
-              }
-            }))}
+            onNotificationChange={handleNotificationChange}
             onNotificationTimeChange={handleNotificationTimeChange}
             addToCalendar={addToCalendar}
             onAddToCalendarChange={setAddToCalendar}
