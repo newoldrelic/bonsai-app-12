@@ -91,7 +91,13 @@ export function MaintenanceSection({
         }
 
         if (Notification.permission === 'denied') {
-          setError('Please enable notifications in your app settings');
+          setError(
+            'To enable notifications:\n' +
+            '1. Long press the Bonsai Care app icon on your home screen\n' +
+            '2. Tap "App info" or ⓘ\n' +
+            '3. Tap "Notifications"\n' +
+            '4. Toggle notifications on'
+          );
           return;
         }
 
