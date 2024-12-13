@@ -57,8 +57,6 @@ export function MaintenanceSection({
       return;
     }
 
-    setError(null);
-
     try {
       if (enabled) {
         // Request permission if enabling notifications
@@ -71,10 +69,11 @@ export function MaintenanceSection({
 
       // Update the notification state through parent component
       onNotificationChange(type, enabled);
+      setError(null); // Clear any previous errors on success
 
       // Send a welcome notification if enabling first notification
       if (enabled && !hasEnabledNotifications) {
-        if ('Notification' in window) {
+        if ('Notification' in window && Notification.permission === 'granted') {
           new Notification('Bonsai Care Notifications Enabled', {
             body: 'You will now receive maintenance reminders for your bonsai trees.',
             icon: '/bonsai-icon.png'
@@ -84,6 +83,18 @@ export function MaintenanceSection({
     } catch (error) {
       debug.error('Error handling notification toggle:', error);
       setError('Failed to update notification settings. Please try again.');
+    }
+  };
+
+  const handleTimeChange = (hours: number, minutes: number) => {
+    try {
+      if (onNotificationTimeChange) {
+        onNotificationTimeChange(hours, minutes);
+        setError(null); // Clear any previous errors
+      }
+    } catch (error) {
+      debug.error('Error updating notification time:', error);
+      setError('Failed to update notification time. Please try again.');
     }
   };
 
@@ -125,7 +136,7 @@ export function MaintenanceSection({
                 </label>
                 <NotificationTimeSelector
                   value={notificationTime}
-                  onChange={onNotificationTimeChange || (() => {})}
+                  onChange={handleTimeChange}
                 />
               </div>
               <p className="text-xs text-stone-500 dark:text-stone-400">
