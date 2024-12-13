@@ -1,15 +1,36 @@
 import React from 'react';
 import { Clock } from 'lucide-react';
-import { getNotificationTime, setNotificationTime } from '../utils/notifications';
+import { notificationService } from '../services/notificationService';
+import { debug } from '../utils/debug';
 
 export function NotificationTimeSelector() {
-  const { hours, minutes } = getNotificationTime();
-  const [time, setTime] = React.useState(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`);
+  const [time, setTime] = React.useState('09:00'); // Default to 9:00 AM
 
-  const handleTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Load saved time on mount
+  React.useEffect(() => {
+    const loadTime = async () => {
+      try {
+        const settings = await notificationService.getNotificationTime();
+        const hours = settings.hours.toString().padStart(2, '0');
+        const minutes = settings.minutes.toString().padStart(2, '0');
+        setTime(`${hours}:${minutes}`);
+      } catch (error) {
+        debug.error('Failed to load notification time:', error);
+      }
+    };
+    loadTime();
+  }, []);
+
+  const handleTimeChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const [hours, minutes] = e.target.value.split(':').map(Number);
     setTime(e.target.value);
-    const [newHours, newMinutes] = e.target.value.split(':').map(Number);
-    setNotificationTime(newHours, newMinutes);
+    
+    try {
+      await notificationService.setNotificationTime(hours, minutes);
+      debug.info('Notification time updated:', { hours, minutes });
+    } catch (error) {
+      debug.error('Failed to update notification time:', error);
+    }
   };
 
   return (
