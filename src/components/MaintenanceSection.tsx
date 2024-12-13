@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { Bell, Calendar } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Bell, Calendar, AlertCircle } from 'lucide-react';
 import { Toggle } from './Toggle';
 import { NotificationTimeSelector } from './NotificationTimeSelector';
 import type { NotificationPreferences } from '../types';
@@ -22,31 +22,37 @@ const NOTIFICATION_TYPES = [
 ] as const;
 
 export function MaintenanceSection({ notifications, onNotificationChange, onAddToCalendarChange, addToCalendar }: MaintenanceSectionProps) {
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
   const hasEnabledNotifications = Object.values(notifications).some(value => value);
 
   useEffect(() => {
     // Initialize notification service when component mounts
     notificationService.init().catch(error => {
       debug.error('Failed to initialize notifications:', error);
+      setError('Failed to initialize notifications. Please try again.');
     });
   }, []);
 
   const handleNotificationToggle = async (type: keyof NotificationPreferences, enabled: boolean) => {
+    setError(null);
+    setLoading(true);
+
     try {
       if (enabled) {
         // Request permission if enabling notifications
         const permission = await Notification.requestPermission();
         if (permission !== 'granted') {
-          debug.warn('Notification permission denied');
+          setError('Please allow notifications to enable reminders');
           return;
         }
       }
 
-      // Update the notification state
+      // Update the notification state through parent component
       onNotificationChange(type, enabled);
 
-      // Send a welcome notification if enabling
-      if (enabled) {
+      // Send a welcome notification if enabling first notification
+      if (enabled && !hasEnabledNotifications) {
         new Notification('Bonsai Care Notifications Enabled', {
           body: 'You will now receive maintenance reminders for your bonsai trees.',
           icon: '/bonsai-icon.png'
@@ -54,6 +60,12 @@ export function MaintenanceSection({ notifications, onNotificationChange, onAddT
       }
     } catch (error) {
       debug.error('Error handling notification toggle:', error);
+      setError('Failed to update notification settings. Please try again.');
+      
+      // Revert the toggle if there was an error
+      onNotificationChange(type, !enabled);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -67,6 +79,13 @@ export function MaintenanceSection({ notifications, onNotificationChange, onAddT
       </div>
 
       <div className="space-y-4 bg-stone-50 dark:bg-stone-800/50 rounded-lg p-4">
+        {error && (
+          <div className="flex items-start space-x-2 text-red-600 dark:text-red-400 text-sm bg-red-50 dark:bg-red-900/20 p-3 rounded-lg">
+            <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+
         {NOTIFICATION_TYPES.map(({ id, label, description, icon }) => (
           <Toggle
             key={id}
@@ -75,6 +94,7 @@ export function MaintenanceSection({ notifications, onNotificationChange, onAddT
             label={label}
             description={description}
             icon={<span className="text-base">{icon}</span>}
+            disabled={loading}
           />
         ))}
 
