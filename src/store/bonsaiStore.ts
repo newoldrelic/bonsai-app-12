@@ -15,7 +15,6 @@ import {
   waitForPendingWrites
 } from 'firebase/firestore';
 import type { BonsaiTree, MaintenanceLog } from '../types';
-import { scheduleNotification } from '../utils/notifications';
 import { auth, db, logAnalyticsEvent } from '../config/firebase';
 import { debug } from '../utils/debug';
 import { notificationService } from '../services/notificationService';
@@ -62,32 +61,38 @@ export const useBonsaiStore = create<BonsaiStore>((set, get) => {
     
     unsubscribe = onSnapshot(q, 
       {
-        next: (snapshot) => {
+        next: async (snapshot) => {
           const trees = snapshot.docs.map(doc => ({
             ...doc.data(),
-            id: doc.id,
-            lastMaintenance: doc.data().lastMaintenance || {}
+            id: doc.id
           })) as BonsaiTree[];
           
           set({ trees, loading: false, offline: false });
           logAnalyticsEvent('trees_sync_success');
 
-          // Initialize notification service and schedule notifications
-          trees.forEach(tree => {
-            Object.entries(tree.notifications).forEach(([type, enabled]) => {
-              if (enabled) {
-                notificationService.updateMaintenanceSchedule(
-                  tree.id,
-                  tree.name,
-                  type as MaintenanceType,
-                  enabled,
-                  tree.lastMaintenance?.[type]
-                ).catch(error => {
-                  debug.error('Failed to schedule notification:', error);
-                });
-              }
+          // Initialize notification service
+          try {
+            await notificationService.init(userEmail);
+            
+            // Update notification schedules for all trees
+            trees.forEach(tree => {
+              Object.entries(tree.notifications).forEach(([type, enabled]) => {
+                if (enabled) {
+                  notificationService.updateMaintenanceSchedule(
+                    tree.id,
+                    tree.name,
+                    type as MaintenanceType,
+                    enabled,
+                    tree.lastMaintenance?.[type]
+                  ).catch(error => {
+                    debug.error('Failed to update notification schedule:', error);
+                  });
+                }
+              });
             });
-          });
+          } catch (error) {
+            debug.error('Failed to initialize notification service:', error);
+          }
         },
         error: (error) => {
           console.error('Firestore subscription error:', error);
@@ -143,8 +148,7 @@ export const useBonsaiStore = create<BonsaiStore>((set, get) => {
         const snapshot = await getDocs(q);
         const trees = snapshot.docs.map(doc => ({
           ...doc.data(),
-          id: doc.id,
-          lastMaintenance: doc.data().lastMaintenance || {}
+          id: doc.id
         })) as BonsaiTree[];
         set({ trees, loading: false, offline: false });
         logAnalyticsEvent('trees_loaded');
@@ -190,7 +194,7 @@ export const useBonsaiStore = create<BonsaiStore>((set, get) => {
         const docRef = await addDoc(collection(db, 'trees'), newTree);
         await waitForPendingWrites(db);
 
-        // Schedule notifications for enabled maintenance types
+        // Initialize notification schedules
         Object.entries(tree.notifications).forEach(([type, enabled]) => {
           if (enabled) {
             notificationService.updateMaintenanceSchedule(
@@ -199,7 +203,7 @@ export const useBonsaiStore = create<BonsaiStore>((set, get) => {
               type as MaintenanceType,
               enabled
             ).catch(error => {
-              debug.error('Failed to schedule notification:', error);
+              debug.error('Failed to set up notification:', error);
             });
           }
         });
