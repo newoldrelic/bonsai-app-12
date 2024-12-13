@@ -43,8 +43,14 @@ export function MaintenanceSection({
         setInitialized(true);
         setError(null);
       } catch (error) {
-        debug.error('Failed to initialize notifications:', error);
-        setError('Failed to initialize notifications. Please try again.');
+        // Only show error for non-permission related issues
+        if (error instanceof Error && 
+            !error.message.includes('permission') && 
+            !error.message.includes('support')) {
+          debug.error('Failed to initialize notifications:', error);
+          setError('Failed to initialize notifications. Please try again.');
+        }
+        setInitialized(true);
       }
     };
 
@@ -52,42 +58,24 @@ export function MaintenanceSection({
   }, []);
 
   const handleNotificationToggle = async (type: keyof NotificationPreferences, enabled: boolean) => {
-    if (!initialized) {
-      try {
-        await notificationService.init();
-        setInitialized(true);
-        setError(null);
-      } catch (error) {
-        // Only show error if it's not a permission-related issue
-        if (error instanceof Error && 
-            error.message !== 'Notification permission denied' &&
-            !error.message.includes('permission') &&
-            !error.message.includes('support')) {
-          setError('Failed to initialize notifications. Please try again.');
-        }
-        return;
-      }
-    }
-  
     try {
       if (enabled) {
         // Request permission if enabling notifications
         const permissionGranted = await notificationService.requestPermission();
         if (!permissionGranted) {
-          // Only show error if permission was explicitly denied
+          // Don't show error for permission denial
           if (Notification.permission === 'denied') {
-            setError('Please allow notifications in your browser settings to enable reminders');
+            debug.info('Notification permission denied');
             return;
           }
-          // If just dismissed or not supported, don't show error
           return;
         }
       }
-  
+
       // Update the notification state through parent component
       onNotificationChange(type, enabled);
-      setError(null); // Clear any previous errors
-  
+      setError(null);
+
       // Only show welcome notification on first enable
       if (enabled && !hasEnabledNotifications && Notification.permission === 'granted') {
         new Notification('Bonsai Care Notifications Enabled', {
@@ -99,8 +87,7 @@ export function MaintenanceSection({
       debug.error('Error handling notification toggle:', error);
       // Only show error for actual failures, not permission-related issues
       if (error instanceof Error && 
-          error.message !== 'Notification permission denied' &&
-          !error.message.includes('permission') &&
+          !error.message.includes('permission') && 
           !error.message.includes('support')) {
         setError('Failed to update notification settings. Please try again.');
       }
@@ -111,7 +98,7 @@ export function MaintenanceSection({
     try {
       if (onNotificationTimeChange) {
         onNotificationTimeChange(hours, minutes);
-        setError(null); // Clear any previous errors
+        setError(null);
       }
     } catch (error) {
       debug.error('Error updating notification time:', error);
@@ -144,7 +131,6 @@ export function MaintenanceSection({
             label={label}
             description={description}
             icon={<span className="text-base">{icon}</span>}
-            disabled={!initialized}
           />
         ))}
 
