@@ -101,24 +101,28 @@ export function MaintenanceSection({
         }
 
         // Check current permission state
-        const currentPermission = Notification.permission;
-        
-        if (currentPermission === 'default') {
-          // Permission hasn't been asked for yet, so we can prompt
+        if (Notification.permission === 'denied') {
+          setError('Notifications are currently blocked in your browser settings');
+          return;
+        }
+
+        // For 'default' state, show custom confirmation
+        if (Notification.permission === 'default') {
+          const confirmed = window.confirm(
+            'Would you like to receive maintenance reminders for your bonsai? ' +
+            'This will help you keep track of watering, pruning, and other care tasks.'
+          );
+
+          if (!confirmed) {
+            return;
+          }
+
+          // User confirmed, now request browser permission
           const permission = await Notification.requestPermission();
           if (permission !== 'granted') {
             setError('Notification permission was not granted');
             return;
           }
-        } else if (currentPermission === 'denied') {
-          // If permission is denied, we need to guide the user to their browser settings
-          setError(
-            'Notifications are blocked. Please enable them in your browser settings:\n' +
-            '1. Tap the ⋮ menu in Chrome\n' +
-            '2. Go to Settings > Site settings > Notifications\n' +
-            '3. Find this site and allow notifications'
-          );
-          return;
         }
       }
 
