@@ -53,36 +53,47 @@ export function MaintenanceSection({
 
   const handleNotificationToggle = async (type: keyof NotificationPreferences, enabled: boolean) => {
     if (!initialized) {
-      setError('Please wait while notifications are being initialized...');
+      // Don't show error during initialization
+      await notificationService.init();
+      setInitialized(true);
+      setError(null);
       return;
     }
-
+  
     try {
       if (enabled) {
         // Request permission if enabling notifications
         const permissionGranted = await notificationService.requestPermission();
         if (!permissionGranted) {
-          setError('Please allow notifications in your browser to enable reminders');
+          // Only show error if permission was explicitly denied
+          if (Notification.permission === 'denied') {
+            setError('Please allow notifications in your browser settings to enable reminders');
+            return;
+          }
+          // If just dismissed, don't show error
           return;
         }
       }
-
+  
       // Update the notification state through parent component
       onNotificationChange(type, enabled);
-      setError(null); // Clear any previous errors on success
-
-      // Send a welcome notification if enabling first notification
-      if (enabled && !hasEnabledNotifications) {
-        if ('Notification' in window && Notification.permission === 'granted') {
-          new Notification('Bonsai Care Notifications Enabled', {
-            body: 'You will now receive maintenance reminders for your bonsai trees.',
-            icon: '/bonsai-icon.png'
-          });
-        }
+      setError(null); // Clear any previous errors
+  
+      // Only show welcome notification on first enable
+      if (enabled && !hasEnabledNotifications && Notification.permission === 'granted') {
+        new Notification('Bonsai Care Notifications Enabled', {
+          body: 'You will now receive maintenance reminders for your bonsai trees.',
+          icon: '/bonsai-icon.png'
+        });
       }
     } catch (error) {
       debug.error('Error handling notification toggle:', error);
-      setError('Failed to update notification settings. Please try again.');
+      // Only show error for actual failures, not permission-related issues
+      if (error instanceof Error && 
+          error.message !== 'Notification permission denied' &&
+          error.message !== 'Notifications not initialized') {
+        setError('Failed to update notification settings. Please try again.');
+      }
     }
   };
 
