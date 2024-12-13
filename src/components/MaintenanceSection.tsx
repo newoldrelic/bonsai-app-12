@@ -8,7 +8,9 @@ import { debug } from '../utils/debug';
 
 interface MaintenanceSectionProps {
   notifications: NotificationPreferences;
+  notificationTime?: { hours: number; minutes: number };
   onNotificationChange: (type: keyof NotificationPreferences, value: boolean) => void;
+  onNotificationTimeChange?: (hours: number, minutes: number) => void;
   onAddToCalendarChange: (value: boolean) => void;
   addToCalendar: boolean;
 }
@@ -21,7 +23,14 @@ const NOTIFICATION_TYPES = [
   { id: 'repotting', label: 'Repotting Schedule', description: 'Alerts for seasonal repotting', icon: '🪴' }
 ] as const;
 
-export function MaintenanceSection({ notifications, onNotificationChange, onAddToCalendarChange, addToCalendar }: MaintenanceSectionProps) {
+export function MaintenanceSection({ 
+  notifications, 
+  notificationTime = { hours: 9, minutes: 0 },
+  onNotificationChange,
+  onNotificationTimeChange,
+  onAddToCalendarChange, 
+  addToCalendar 
+}: MaintenanceSectionProps) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const hasEnabledNotifications = Object.values(notifications).some(value => value);
@@ -105,7 +114,10 @@ export function MaintenanceSection({ notifications, onNotificationChange, onAddT
                 <label className="text-sm font-medium text-stone-700 dark:text-stone-300">
                   Notification Time
                 </label>
-                <NotificationTimeSelector />
+                <NotificationTimeSelector
+                  value={notificationTime}
+                  onChange={onNotificationTimeChange || (() => {})}
+                />
               </div>
               <p className="text-xs text-stone-500 dark:text-stone-400">
                 All maintenance reminders will be sent at this time

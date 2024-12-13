@@ -1,31 +1,13 @@
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, db } from '../config/firebase';
 import { debug } from '../utils/debug';
 import { MAINTENANCE_SCHEDULES } from '../config/maintenance';
-import type { MaintenanceType, NotificationSettings, MaintenanceSchedule } from '../types';
+import type { MaintenanceType } from '../types';
 import { addDays, setHours, setMinutes } from 'date-fns';
 
 class NotificationService {
-  private userEmail: string | null = null;
-  private notificationTime = { hours: 9, minutes: 0 };
   private notificationTimers: Record<string, NodeJS.Timeout> = {};
   private serviceWorkerRegistration: ServiceWorkerRegistration | null = null;
   private initialized = false;
   private initializationError: Error | null = null;
-
-  constructor() {
-    auth.onAuthStateChanged(user => {
-      this.userEmail = user?.email || null;
-      if (user?.email) {
-        this.init().catch(error => {
-          debug.error('Failed to initialize notification service:', error);
-          this.initializationError = error instanceof Error ? error : new Error('Unknown error');
-        });
-      } else {
-        this.clearAllTimers();
-      }
-    });
-  }
 
   async init(): Promise<void> {
     if (this.initialized) return;
@@ -50,17 +32,6 @@ class NotificationService {
 
         // Wait for the service worker to be ready
         await navigator.serviceWorker.ready;
-      }
-
-      // Load notification settings
-      if (this.userEmail) {
-        const settings = await this.getNotificationSettings();
-        if (settings) {
-          this.notificationTime = {
-            hours: settings.hours,
-            minutes: settings.minutes
-          };
-        }
       }
 
       this.initialized = true;
@@ -102,56 +73,13 @@ class NotificationService {
     }
   }
 
-  private async getNotificationSettings(): Promise<NotificationSettings | null> {
-    if (!this.userEmail) return null;
-
-    try {
-      const settingsRef = doc(db, 'notificationSettings', this.userEmail);
-      const settingsDoc = await getDoc(settingsRef);
-      
-      if (settingsDoc.exists()) {
-        return settingsDoc.data() as NotificationSettings;
-      }
-    } catch (error) {
-      debug.error('Failed to get notification settings:', error);
-    }
-
-    return null;
-  }
-
-  async getNotificationTime(): Promise<{ hours: number; minutes: number }> {
-    await this.ensureInitialized();
-    const settings = await this.getNotificationSettings();
-    return settings ? { hours: settings.hours, minutes: settings.minutes } : this.notificationTime;
-  }
-
-  async setNotificationTime(hours: number, minutes: number): Promise<void> {
-    await this.ensureInitialized();
-    if (!this.userEmail) return;
-
-    try {
-      const settingsRef = doc(db, 'notificationSettings', this.userEmail);
-      await setDoc(settingsRef, {
-        hours,
-        minutes,
-        userEmail: this.userEmail,
-        updatedAt: serverTimestamp()
-      }, { merge: true });
-
-      this.notificationTime = { hours, minutes };
-      await this.rescheduleAllNotifications();
-    } catch (error) {
-      debug.error('Failed to save notification time:', error);
-      throw error;
-    }
-  }
-
   async updateMaintenanceSchedule(
     treeId: string,
     treeName: string,
     type: MaintenanceType,
     enabled: boolean,
-    lastPerformed?: string
+    lastPerformed?: string,
+    notificationTime?: { hours: number; minutes: number }
   ): Promise<void> {
     await this.ensureInitialized();
     
@@ -177,10 +105,14 @@ class NotificationService {
     const schedule = MAINTENANCE_SCHEDULES[type];
     const lastDate = lastPerformed ? new Date(lastPerformed) : new Date();
     
+    // Calculate next notification time using tree's notification settings or default to 9 AM
+    const hours = notificationTime?.hours ?? 9;
+    const minutes = notificationTime?.minutes ?? 0;
+    
     // Calculate next notification time
     let nextDate = addDays(lastDate, schedule.interval / (24 * 60 * 60 * 1000));
-    nextDate = setHours(nextDate, this.notificationTime.hours);
-    nextDate = setMinutes(nextDate, this.notificationTime.minutes);
+    nextDate = setHours(nextDate, hours);
+    nextDate = setMinutes(nextDate, minutes);
 
     // If calculated time is in past, add interval
     if (nextDate < new Date()) {
@@ -213,18 +145,20 @@ class NotificationService {
         }
 
         // Schedule next notification
-        this.updateMaintenanceSchedule(treeId, treeName, type, true, nextDate.toISOString());
+        this.updateMaintenanceSchedule(
+          treeId, 
+          treeName, 
+          type, 
+          true, 
+          nextDate.toISOString(),
+          { hours, minutes }
+        );
       } catch (error) {
         debug.error('Failed to show notification:', error);
       }
     }, Math.max(0, timeUntilNotification));
 
     debug.info(`Scheduled ${type} notification for ${treeName} at ${nextDate.toISOString()}`);
-  }
-
-  async rescheduleAllNotifications(): Promise<void> {
-    await this.ensureInitialized();
-    debug.info('Rescheduling all notifications');
   }
 
   private clearAllTimers(): void {
