@@ -79,86 +79,43 @@ export function MaintenanceSection({
 
   const handleNotificationToggle = async (type: keyof NotificationPreferences, enabled: boolean) => {
     try {
-      debug.info('Starting notification toggle:', { type, enabled, platform: isIOS() ? 'iOS' : 'Android' });
-
       // For iOS, just update the toggle state
       if (isIOS()) {
         onNotificationChange(type, enabled);
         return;
       }
 
-      // For other platforms, handle notifications
       if (enabled) {
-        debug.info('Attempting to enable notification...');
+        // Check if notification API is available
+        if (!('Notification' in window)) {
+          setError('Notifications are not supported in this browser');
+          return;
+        }
+
+        // Explicitly request permission
+        const permission = await Notification.requestPermission();
         
-        // Update state optimistically
-        onNotificationChange(type, enabled);
-        debug.info('State updated optimistically');
-
-        if (!hasEnabledNotifications) {
-          try {
-            debug.info('First notification, checking service worker...');
-            if ('serviceWorker' in navigator) {
-              const registration = await navigator.serviceWorker.ready;
-              debug.info('Service worker status:', registration.active ? 'active' : 'inactive');
-            }
-          } catch (swError) {
-            debug.error('Service worker error:', swError);
-            // Don't return here, try to continue
-          }
-        }
-
-        try {
-          debug.info('Requesting notification permission...');
-          const permissionGranted = await notificationService.requestPermission();
-          debug.info('Permission request result:', permissionGranted);
-
-          if (!permissionGranted) {
-            debug.info('Current permission state:', Notification.permission);
-            if (Notification.permission === 'denied') {
-              debug.info('Notification permission denied');
-              // Don't revert state here - let user control toggle regardless of permission
-              return;
-            }
-            return;
-          }
-        } catch (permError) {
-          debug.error('Permission request error:', permError);
-          // Don't revert state or return - let user control toggle
-        }
-
-        if (!hasEnabledNotifications && Notification.permission === 'granted') {
-          try {
-            debug.info('Sending test notification...');
-            new Notification('Bonsai Care Notifications Enabled', {
-              body: 'You will now receive maintenance reminders for your bonsai trees.',
-              icon: '/bonsai-icon.png'
-            });
-            debug.info('Test notification sent successfully');
-          } catch (notifError) {
-            debug.error('Test notification error:', notifError);
-            // Don't revert state - notification failing shouldn't prevent toggle
-          }
+        if (permission === 'granted') {
+          onNotificationChange(type, enabled);
+          setError(null);
+          
+          // Show a test notification
+          new Notification('Bonsai Care', {
+            body: 'Test notification - reminders are now enabled',
+            icon: '/bonsai-icon.png'
+          });
+        } else {
+          setError(`Notification permission ${permission}. Please enable notifications in your browser settings.`);
+          return;
         }
       } else {
-        // Turning off - just update state
         onNotificationChange(type, enabled);
+        setError(null);
       }
-
-      setError(null);
     } catch (error) {
-      debug.error('Error in handleNotificationToggle:', error);
-      
-      // Only show user-facing error for non-permission issues
-      if (error instanceof Error && 
-          !error.message.includes('permission') && 
-          !error.message.includes('support')) {
-        setError('Failed to update notification settings. Please try again.');
-      }
-      
-      // Don't revert the toggle state - let user control it regardless of errors
+      setError(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-  };
+};
 
   const handleTimeChange = (hours: number, minutes: number) => {
     try {
