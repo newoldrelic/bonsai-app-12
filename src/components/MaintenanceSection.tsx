@@ -1,10 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Bell, Calendar, AlertCircle } from 'lucide-react';
 import { Toggle } from './Toggle';
 import { NotificationTimeSelector } from './NotificationTimeSelector';
 import type { NotificationPreferences } from '../types';
 import { notificationService } from '../services/notificationService';
 import { debug } from '../utils/debug';
+
+const isIOS = () => {
+  return [
+    'iPad Simulator',
+    'iPhone Simulator',
+    'iPod Simulator',
+    'iPad',
+    'iPhone',
+    'iPod'
+  ].includes(navigator.platform)
+  || (navigator.userAgent.includes("Mac") && "ontouchend" in document);
+};
 
 interface MaintenanceSectionProps {
   notifications: NotificationPreferences;
@@ -36,10 +48,13 @@ export function MaintenanceSection({
   const hasEnabledNotifications = Object.values(notifications).some(value => value);
 
   // Initialize notification service
-  useEffect(() => {
+  React.useEffect(() => {
     const initNotifications = async () => {
       try {
-        await notificationService.init();
+        // Don't initialize notifications on iOS
+        if (!isIOS()) {
+          await notificationService.init();
+        }
         setInitialized(true);
         setError(null);
       } catch (error) {
@@ -59,56 +74,61 @@ export function MaintenanceSection({
 
   const handleNotificationToggle = async (type: keyof NotificationPreferences, enabled: boolean) => {
     try {
-      debug.info('MaintenanceSection: Starting notification toggle:', { type, enabled, hasEnabledNotifications });
-      
+      if (isIOS()) {
+        // For iOS users, enable calendar by default when they try to enable notifications
+        if (enabled) {
+          onAddToCalendarChange(true);
+        }
+        return;
+      }
+
       if (enabled) {
-        debug.info('MaintenanceSection: Requesting permission...');
+        // On Android, ensure service worker is ready before first notification
+        if (!hasEnabledNotifications) {
+          try {
+            // Add a small delay before the first permission request
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            // Try to register/ensure service worker is ready
+            if ('serviceWorker' in navigator) {
+              await navigator.serviceWorker.ready;
+            }
+          } catch (swError) {
+            debug.error('Service worker initialization error:', swError);
+          }
+        }
+
         const permissionGranted = await notificationService.requestPermission();
-        debug.info('MaintenanceSection: Permission result:', { 
-          permissionGranted, 
-          currentPermission: Notification.permission 
-        });
-        
         if (!permissionGranted) {
           if (Notification.permission === 'denied') {
-            debug.info('MaintenanceSection: Notification permission denied');
+            debug.info('Notification permission denied');
             return;
           }
           return;
         }
       }
 
-      debug.info('MaintenanceSection: Calling parent onNotificationChange...');
+      // Update the notification state through parent component
       onNotificationChange(type, enabled);
-      debug.info('MaintenanceSection: Parent onNotificationChange completed');
-      
       setError(null);
 
       if (enabled && !hasEnabledNotifications && Notification.permission === 'granted') {
-        debug.info('MaintenanceSection: Creating welcome notification...');
+        // Small delay before first notification on Android
+        await new Promise(resolve => setTimeout(resolve, 100));
         new Notification('Bonsai Care Notifications Enabled', {
           body: 'You will now receive maintenance reminders for your bonsai trees.',
           icon: '/bonsai-icon.png'
         });
-        debug.info('MaintenanceSection: Welcome notification created');
       }
     } catch (error) {
-      debug.error('MaintenanceSection: Error in handleNotificationToggle:', {
-        error,
-        errorMessage: error instanceof Error ? error.message : String(error),
-        type,
-        enabled,
-        hasEnabledNotifications,
-        currentPermission: Notification.permission
-      });
-      
+      debug.error('Error handling notification toggle:', error);
       if (error instanceof Error && 
           !error.message.includes('permission') && 
           !error.message.includes('support')) {
         setError('Failed to update notification settings. Please try again.');
       }
     }
-};
+  };
 
   const handleTimeChange = (hours: number, minutes: number) => {
     try {
@@ -124,6 +144,11 @@ export function MaintenanceSection({
 
   return (
     <div>
+      {isIOS() && (
+        <div className="mb-4 text-sm bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 p-3 rounded-lg">
+          Browser notifications are not available on iOS devices. Calendar reminders will be enabled by default.
+        </div>
+      )}
       <div className="flex items-center space-x-2 mb-4">
         <Bell className="w-5 h-5 text-bonsai-green" />
         <span className="text-sm font-medium text-stone-700 dark:text-stone-300">
@@ -139,45 +164,52 @@ export function MaintenanceSection({
           </div>
         )}
 
-        {NOTIFICATION_TYPES.map(({ id, label, description, icon }) => (
-          <Toggle
-            key={id}
-            checked={notifications[id as keyof typeof notifications]}
-            onChange={(checked) => handleNotificationToggle(id as keyof NotificationPreferences, checked)}
-            label={label}
-            description={description}
-            icon={<span className="text-base">{icon}</span>}
-          />
-        ))}
-
-        {hasEnabledNotifications && (
+        {/* Only show notification toggles if not on iOS */}
+        {!isIOS() && (
           <>
-            <div className="border-t border-stone-200 dark:border-stone-700 pt-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-medium text-stone-700 dark:text-stone-300">
-                  Notification Time
-                </label>
-                <NotificationTimeSelector
-                  value={notificationTime}
-                  onChange={handleTimeChange}
-                />
-              </div>
-              <p className="text-xs text-stone-500 dark:text-stone-400">
-                All maintenance reminders will be sent at this time
-              </p>
-            </div>
-
-            <div className="border-t border-stone-200 dark:border-stone-700 pt-4">
+            {NOTIFICATION_TYPES.map(({ id, label, description, icon }) => (
               <Toggle
-                checked={addToCalendar}
-                onChange={onAddToCalendarChange}
-                label="Add to Calendar"
-                description="Download an .ics file to add maintenance schedules to your calendar"
-                icon={<Calendar className="w-4 h-4 text-bonsai-green" />}
+                key={id}
+                checked={notifications[id as keyof typeof notifications]}
+                onChange={(checked) => handleNotificationToggle(id as keyof NotificationPreferences, checked)}
+                label={label}
+                description={description}
+                icon={<span className="text-base">{icon}</span>}
               />
-            </div>
+            ))}
+
+            {hasEnabledNotifications && (
+              <div className="border-t border-stone-200 dark:border-stone-700 pt-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium text-stone-700 dark:text-stone-300">
+                    Notification Time
+                  </label>
+                  <NotificationTimeSelector
+                    value={notificationTime}
+                    onChange={handleTimeChange}
+                  />
+                </div>
+                <p className="text-xs text-stone-500 dark:text-stone-400">
+                  All maintenance reminders will be sent at this time
+                </p>
+              </div>
+            )}
           </>
         )}
+
+        {/* Show calendar option with modified text based on platform */}
+        <div className={`${!isIOS() ? 'border-t border-stone-200 dark:border-stone-700 pt-4' : ''}`}>
+          <Toggle
+            checked={isIOS() ? true : addToCalendar}
+            onChange={onAddToCalendarChange}
+            label="Add to Calendar"
+            description={isIOS() 
+              ? "Download an .ics file to set up maintenance reminders in your calendar"
+              : "Download an .ics file to add maintenance schedules to your calendar"}
+            icon={<Calendar className="w-4 h-4 text-bonsai-green" />}
+            disabled={isIOS()}
+          />
+        </div>
       </div>
     </div>
   );
