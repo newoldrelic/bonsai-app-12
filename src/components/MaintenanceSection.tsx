@@ -79,6 +79,8 @@ export function MaintenanceSection({
 
   const handleNotificationToggle = async (type: keyof NotificationPreferences, enabled: boolean) => {
     try {
+      debug.info('Starting notification toggle:', { type, enabled, platform: isIOS() ? 'iOS' : 'Android' });
+
       // For iOS, just update the toggle state
       if (isIOS()) {
         onNotificationChange(type, enabled);
@@ -87,45 +89,74 @@ export function MaintenanceSection({
 
       // For other platforms, handle notifications
       if (enabled) {
+        debug.info('Attempting to enable notification...');
+        
+        // Update state optimistically
+        onNotificationChange(type, enabled);
+        debug.info('State updated optimistically');
+
         if (!hasEnabledNotifications) {
           try {
-            await new Promise(resolve => setTimeout(resolve, 100));
-            
+            debug.info('First notification, checking service worker...');
             if ('serviceWorker' in navigator) {
-              await navigator.serviceWorker.ready;
+              const registration = await navigator.serviceWorker.ready;
+              debug.info('Service worker status:', registration.active ? 'active' : 'inactive');
             }
           } catch (swError) {
-            debug.error('Service worker initialization error:', swError);
+            debug.error('Service worker error:', swError);
+            // Don't return here, try to continue
           }
         }
 
-        const permissionGranted = await notificationService.requestPermission();
-        if (!permissionGranted) {
-          if (Notification.permission === 'denied') {
-            debug.info('Notification permission denied');
+        try {
+          debug.info('Requesting notification permission...');
+          const permissionGranted = await notificationService.requestPermission();
+          debug.info('Permission request result:', permissionGranted);
+
+          if (!permissionGranted) {
+            debug.info('Current permission state:', Notification.permission);
+            if (Notification.permission === 'denied') {
+              debug.info('Notification permission denied');
+              // Don't revert state here - let user control toggle regardless of permission
+              return;
+            }
             return;
           }
-          return;
+        } catch (permError) {
+          debug.error('Permission request error:', permError);
+          // Don't revert state or return - let user control toggle
         }
+
+        if (!hasEnabledNotifications && Notification.permission === 'granted') {
+          try {
+            debug.info('Sending test notification...');
+            new Notification('Bonsai Care Notifications Enabled', {
+              body: 'You will now receive maintenance reminders for your bonsai trees.',
+              icon: '/bonsai-icon.png'
+            });
+            debug.info('Test notification sent successfully');
+          } catch (notifError) {
+            debug.error('Test notification error:', notifError);
+            // Don't revert state - notification failing shouldn't prevent toggle
+          }
+        }
+      } else {
+        // Turning off - just update state
+        onNotificationChange(type, enabled);
       }
 
-      onNotificationChange(type, enabled);
       setError(null);
-
-      if (enabled && !hasEnabledNotifications && Notification.permission === 'granted') {
-        await new Promise(resolve => setTimeout(resolve, 100));
-        new Notification('Bonsai Care Notifications Enabled', {
-          body: 'You will now receive maintenance reminders for your bonsai trees.',
-          icon: '/bonsai-icon.png'
-        });
-      }
     } catch (error) {
-      debug.error('Error handling notification toggle:', error);
+      debug.error('Error in handleNotificationToggle:', error);
+      
+      // Only show user-facing error for non-permission issues
       if (error instanceof Error && 
           !error.message.includes('permission') && 
           !error.message.includes('support')) {
         setError('Failed to update notification settings. Please try again.');
       }
+      
+      // Don't revert the toggle state - let user control it regardless of errors
     }
   };
 
