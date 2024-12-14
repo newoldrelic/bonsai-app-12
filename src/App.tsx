@@ -24,11 +24,25 @@ import { logAnalyticsEvent } from './config/firebase';
 import { debug } from './utils/debug';
 import { registerServiceWorker } from './utils/notifications';
 
-function InstallPrompt() {
+const InstallPrompt = () => {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showPrompt, setShowPrompt] = useState(false);
 
   useEffect(() => {
+    // Check if app is not already installed
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+    const isInStandaloneMode = (window.navigator as any).standalone;
+    
+    if (!isStandalone && !isInStandaloneMode) {
+      // Show prompt more quickly on mobile
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      
+      if (isMobile) {
+        // For mobile, show prompt after a short delay
+        setTimeout(() => setShowPrompt(true), 2000);
+      }
+    }
+
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e);
