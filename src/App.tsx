@@ -29,6 +29,8 @@ const InstallPrompt = () => {
   const [showPrompt, setShowPrompt] = useState(false);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
 
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
   useEffect(() => {
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
     const isInStandaloneMode = (window.navigator as any).standalone;
@@ -41,32 +43,34 @@ const InstallPrompt = () => {
       }
     }
 
-    const handleBeforeInstallPrompt = (e: Event) => {
-      e.preventDefault();
-      setDeferredPrompt(e);
-      setShowPrompt(true);
-    };
+    if (!isIOS) {
+      const handleBeforeInstallPrompt = (e: Event) => {
+        e.preventDefault();
+        setDeferredPrompt(e);
+        setShowPrompt(true);
+      };
 
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
 
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    };
+      return () => {
+        window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      };
+    }
   }, []);
 
   const handleInstallClick = async () => {
-    if (!deferredPrompt) return;
+    if (!isIOS && deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      debug.info(`User response to install prompt: ${outcome}`);
 
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    debug.info(`User response to install prompt: ${outcome}`);
-
-    if (outcome === 'accepted') {
-      setShowSuccessMessage(true);
-      setShowPrompt(false);
+      if (outcome === 'accepted') {
+        setShowSuccessMessage(true);
+        setShowPrompt(false);
+      }
+      
+      setDeferredPrompt(null);
     }
-    
-    setDeferredPrompt(null);
   };
 
   if (showSuccessMessage) {
@@ -95,9 +99,20 @@ const InstallPrompt = () => {
           <h3 className="text-lg font-semibold text-stone-800 dark:text-white">
             Install Bonsai Care
           </h3>
-          <p className="text-sm text-stone-600 dark:text-stone-300 mt-1">
-            Get quick access to your bonsai care schedule by installing the app on your device. You can also continue using the browser version if you prefer.
-          </p>
+          {isIOS ? (
+            <div className="text-sm text-stone-600 dark:text-stone-300 mt-1 space-y-2">
+              <p>To install Bonsai Care on your iPhone:</p>
+              <ol className="list-decimal list-inside space-y-1 text-left">
+                <li>Tap the Share button <span className="inline-block w-6 h-6 align-middle">□</span> at the bottom of the screen</li>
+                <li>Scroll down and tap "Add to Home Screen"</li>
+                <li>Tap "Add" to confirm</li>
+              </ol>
+            </div>
+          ) : (
+            <p className="text-sm text-stone-600 dark:text-stone-300 mt-1">
+              Get quick access to your bonsai care schedule by installing the app on your device. You can also continue using the browser version if you prefer.
+            </p>
+          )}
         </div>
         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
           <button
@@ -106,12 +121,14 @@ const InstallPrompt = () => {
           >
             Continue in Browser
           </button>
-          <button
-            onClick={handleInstallClick}
-            className="bg-bonsai-green text-white px-6 py-2 rounded-lg hover:bg-bonsai-moss transition-colors text-sm"
-          >
-            Install App
-          </button>
+          {!isIOS && (
+            <button
+              onClick={handleInstallClick}
+              className="bg-bonsai-green text-white px-6 py-2 rounded-lg hover:bg-bonsai-moss transition-colors text-sm"
+            >
+              Install App
+            </button>
+          )}
         </div>
       </div>
     </div>
