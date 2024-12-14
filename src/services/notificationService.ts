@@ -16,17 +16,26 @@ class NotificationService {
       this.initializationError = new Error('This browser does not support notifications');
       throw this.initializationError;
     }
-
+  
     try {
       // Register service worker if not already registered
       if ('serviceWorker' in navigator) {
-        this.serviceWorkerRegistration = await navigator.serviceWorker.register('/notification-worker.js');
-        debug.info('Service Worker registered');
-
+        // Check if we already have a registration
+        const existingRegistration = await navigator.serviceWorker.getRegistration('/notification-worker.js');
+        
+        if (existingRegistration) {
+          this.serviceWorkerRegistration = existingRegistration;
+          debug.info('Using existing Service Worker registration');
+        } else {
+          this.serviceWorkerRegistration = await navigator.serviceWorker.register('/notification-worker.js');
+          debug.info('New Service Worker registered');
+        }
+  
         // Wait for the service worker to be ready
         await navigator.serviceWorker.ready;
+        debug.info('Service Worker is ready');
       }
-
+  
       this.initialized = true;
       this.initializationError = null;
       debug.info('Notification service initialized successfully');
