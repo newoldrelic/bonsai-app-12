@@ -27,18 +27,16 @@ import { registerServiceWorker } from './utils/notifications';
 const InstallPrompt = () => {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showPrompt, setShowPrompt] = useState(false);
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
 
   useEffect(() => {
-    // Check if app is not already installed
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
     const isInStandaloneMode = (window.navigator as any).standalone;
     
     if (!isStandalone && !isInStandaloneMode) {
-      // Show prompt more quickly on mobile
       const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
       
       if (isMobile) {
-        // For mobile, show prompt after a short delay
         setTimeout(() => setShowPrompt(true), 2000);
       }
     }
@@ -59,17 +57,26 @@ const InstallPrompt = () => {
   const handleInstallClick = async () => {
     if (!deferredPrompt) return;
 
-    // Show the browser's install prompt
     deferredPrompt.prompt();
-
-    // Wait for the user to respond to the prompt
     const { outcome } = await deferredPrompt.userChoice;
     debug.info(`User response to install prompt: ${outcome}`);
 
-    // Clear the deferredPrompt
+    if (outcome === 'accepted') {
+      setShowSuccessMessage(true);
+      setShowPrompt(false);
+    }
+    
     setDeferredPrompt(null);
-    setShowPrompt(false);
   };
+
+  if (showSuccessMessage) {
+    return (
+      <div className="fixed bottom-4 left-4 right-4 bg-bonsai-green text-white rounded-lg shadow-lg p-4 z-50 text-center">
+        <p className="font-medium mb-2">App installed successfully! 🎉</p>
+        <p className="text-sm">You can now close this browser tab and use the installed app on your home screen.</p>
+      </div>
+    );
+  }
 
   if (!showPrompt) return null;
 
@@ -78,6 +85,7 @@ const InstallPrompt = () => {
       <button 
         onClick={() => setShowPrompt(false)}
         className="absolute top-2 right-2 p-1 text-stone-500 hover:text-stone-700 dark:text-stone-400 dark:hover:text-stone-200"
+        aria-label="Close prompt"
       >
         <X className="w-4 h-4" />
       </button>
@@ -88,19 +96,27 @@ const InstallPrompt = () => {
             Install Bonsai Care
           </h3>
           <p className="text-sm text-stone-600 dark:text-stone-300 mt-1">
-            Add to your home screen for quick access to your bonsai care schedule
+            Get quick access to your bonsai care schedule by installing the app on your device. You can also continue using the browser version if you prefer.
           </p>
         </div>
-        <button
-          onClick={handleInstallClick}
-          className="bg-bonsai-green text-white px-6 py-2 rounded-lg hover:bg-bonsai-moss transition-colors"
-        >
-          Install App
-        </button>
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <button
+            onClick={() => setShowPrompt(false)}
+            className="px-6 py-2 text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700 rounded-lg transition-colors text-sm"
+          >
+            Continue in Browser
+          </button>
+          <button
+            onClick={handleInstallClick}
+            className="bg-bonsai-green text-white px-6 py-2 rounded-lg hover:bg-bonsai-moss transition-colors text-sm"
+          >
+            Install App
+          </button>
+        </div>
       </div>
     </div>
   );
-}
+};
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuthStore();
