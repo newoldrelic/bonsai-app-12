@@ -160,27 +160,30 @@ export function MaintenanceSection({
           return;
         }
 
-        // If permission is denied, show settings instructions
-        if (Notification.permission === 'denied') {
-          setError(
-            'To enable notifications:\n' +
-            '1. Long press the Bonsai Care app icon on your home screen\n' +
-            '2. Tap "App info" or ⓘ\n' +
-            '3. Tap "Notifications"\n' +
-            '4. Toggle notifications on'
-          );
-          return;
+        try {
+          await notificationService.init();
+          // Request permission if needed
+          const permissionGranted = await notificationService.requestPermission();
+          
+          if (permissionGranted) {
+            // Permission was granted, proceed with enabling notification
+            onNotificationChange(type, enabled);
+            setError(null);
+          } else {
+            // Only show instructions if permission was actually denied
+            if (Notification.permission === 'denied') {
+              setError(
+                'To enable notifications:\n' +
+                '1. Long press the Bonsai Care app icon on your home screen\n' +
+                '2. Tap "App info" or ⓘ\n' +
+                '3. Tap "Notifications"\n' +
+                '4. Toggle notifications on'
+              );
+            }
+          }
+        } catch (error) {
+          setError(`Failed to enable notifications: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
-
-        // If permission hasn't been granted yet, show our custom modal
-        if (Notification.permission === 'default') {
-          setPendingToggleType(type);
-          setShowConsentModal(true);
-          return;
-        }
-
-        // Permission is already granted, proceed with enabling
-        await enableNotification(type);
       } else {
         // Disabling notifications - just update state
         onNotificationChange(type, enabled);
@@ -190,7 +193,7 @@ export function MaintenanceSection({
       debug.error('Error in handleNotificationToggle:', error);
       setError(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-  };
+};
 
   const handleTimeChange = (hours: number, minutes: number) => {
     try {
