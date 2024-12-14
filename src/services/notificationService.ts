@@ -57,12 +57,18 @@ class NotificationService {
 
   async requestPermission(): Promise<boolean> {
     try {
-      await this.ensureInitialized();
-
-      // Always try to request permission first
-      const permission = await Notification.requestPermission();
-      return permission === 'granted';
+      // Check current permission state
+      if (Notification.permission === 'granted') {
+        return true;
+      }
       
+      // Request permission only if not already denied
+      if (Notification.permission !== 'denied') {
+        const permission = await Notification.requestPermission();
+        return permission === 'granted';
+      }
+      
+      return false;
     } catch (error) {
       debug.error('Failed to request notification permission:', error);
       return false;
@@ -78,6 +84,7 @@ class NotificationService {
     notificationTime?: { hours: number; minutes: number }
   ): Promise<void> {
     try {
+      // Initialize if needed, but don't request permissions yet
       await this.ensureInitialized();
       
       const key = `${treeId}-${type}`;
@@ -93,10 +100,9 @@ class NotificationService {
         return;
       }
 
-      // Request permission if not already granted
-      const permissionGranted = await this.requestPermission();
-      if (!permissionGranted) {
-        throw new Error('Notification permission denied');
+      // Check if we have permission before proceeding
+      if (Notification.permission !== 'granted') {
+        throw new Error('Notification permission required');
       }
 
       const schedule = MAINTENANCE_SCHEDULES[type];
