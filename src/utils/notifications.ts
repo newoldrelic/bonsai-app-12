@@ -144,16 +144,27 @@ export async function scheduleNotification(
   }
 
   const schedule = MAINTENANCE_SCHEDULES[type];
-  const lastDate = lastPerformed ? new Date(lastPerformed) : new Date();
+  
+  // Calculate base date
+  let baseDate;
+  if (lastPerformed) {
+    baseDate = new Date(lastPerformed);
+  } else {
+    // If never performed, start schedule from now but don't notify immediately
+    baseDate = new Date();
+    // Move the base date back by the interval to prevent immediate notification
+    baseDate.setTime(baseDate.getTime() - schedule.interval);
+  }
+  
   const { hours, minutes } = getNotificationTime();
   
   // Calculate next notification time
-  let nextDate = addDays(lastDate, schedule.interval / (24 * 60 * 60 * 1000));
+  let nextDate = addDays(baseDate, schedule.interval / (24 * 60 * 60 * 1000));
   nextDate = setHours(nextDate, hours);
   nextDate = setMinutes(nextDate, minutes);
 
-  // If the calculated time is in the past, add the interval
-  if (nextDate < new Date()) {
+  // If the calculated time is in the past, add intervals until we reach a future time
+  while (nextDate < new Date()) {
     nextDate = addDays(nextDate, schedule.interval / (24 * 60 * 60 * 1000));
   }
 
@@ -163,12 +174,18 @@ export async function scheduleNotification(
   // Clear any existing notification
   clearExistingNotification(treeId, type);
 
+  debug.info(`Scheduling ${type} notification for ${treeName}:`, {
+    baseDate: baseDate.toISOString(),
+    nextDate: nextDate.toISOString(),
+    timeUntil: timeUntilNotification / (1000 * 60 * 60) + ' hours'
+  });
+
   // Schedule the notification
   notificationTimers[key] = setTimeout(() => {
     if (areNotificationsEnabled()) {
       try {
         const notification = new Notification(`Bonsai Maintenance: ${treeName}`, {
-          body: `${schedule.message} (Last done: ${format(lastDate, 'PP')})`,
+          body: `${schedule.message} (Last done: ${lastPerformed ? format(baseDate, 'PP') : 'Never'})`,
           icon: '/bonsai-icon.png',
           tag: key,
           requireInteraction: true
