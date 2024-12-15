@@ -9,37 +9,37 @@ interface StyleSelectorProps {
 const STYLE_DETAILS = [
   {
     style: 'Chokkan',
-    image: 'https://images.unsplash.com/photo-1512428813834-c702c7702b78?w=300',
+    image: '/styles/chokkan.jpg',
     description: 'Formal upright style with straight trunk'
   },
   {
     style: 'Moyogi',
-    image: 'https://images.unsplash.com/photo-1611171711810-bd87831ade4c?w=300',
+    image: '/styles/moyogi.jpg',
     description: 'Informal upright with curved trunk'
   },
   {
     style: 'Shakan',
-    image: 'https://images.unsplash.com/photo-1610123172763-1f587473048f?w=300',
+    image: '/styles/shakan.jpg',
     description: 'Slanting style, trunk grows at an angle'
   },
   {
     style: 'Kengai',
-    image: 'https://images.unsplash.com/photo-1612911969147-76f87ed6d91f?w=300',
+    image: '/styles/kengai.jpg',
     description: 'Cascade style, grows downward below pot base'
   },
   {
     style: 'Han-Kengai',
-    image: 'https://images.unsplash.com/photo-1604507981841-37a7d0c522f2?w=300',
+    image: '/styles/han-kengai.jpg',
     description: 'Semi-cascade, grows downward but not below pot'
   },
   {
-    style: 'Multiple Trunk',
-    image: 'https://images.unsplash.com/photo-1620148639493-5a7cc139813d?w=300',
-    description: 'Several trunks growing from one root system'
+    style: 'Kabudachi',
+    image: '/styles/kabudachi.jpg',
+    description: 'Multitple trunks growing from one root system'
   },
   {
-    style: 'Forest',
-    image: 'https://images.unsplash.com/photo-1624508015916-d5c3cdc6dacd?w=300',
+    style: 'Yose-ue',
+    image: '/styles/yose-ue.jpg',
     description: 'Group of trees planted together'
   }
 ] as const;
