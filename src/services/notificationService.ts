@@ -84,7 +84,6 @@ class NotificationService {
     notificationTime?: { hours: number; minutes: number }
   ): Promise<void> {
     try {
-      // Initialize if needed, but don't request permissions yet
       await this.ensureInitialized();
       
       const key = `${treeId}-${type}`;
@@ -100,29 +99,43 @@ class NotificationService {
         return;
       }
 
-      // Check if we have permission before proceeding
       if (Notification.permission !== 'granted') {
         throw new Error('Notification permission required');
       }
 
       const schedule = MAINTENANCE_SCHEDULES[type];
-      const lastDate = lastPerformed ? new Date(lastPerformed) : new Date();
       
-      // Calculate next notification time using tree's notification settings or default to 9 AM
+      // Calculate base date - if never performed, start scheduling from now
+      let baseDate = lastPerformed ? new Date(lastPerformed) : new Date();
+      
+      // For new tasks without lastPerformed, set base date to now minus one interval
+      // This prevents immediate notification
+      if (!lastPerformed) {
+        baseDate = new Date(baseDate.getTime() - schedule.interval);
+      }
+      
       const hours = notificationTime?.hours ?? 9;
       const minutes = notificationTime?.minutes ?? 0;
       
       // Calculate next notification time
-      let nextDate = addDays(lastDate, schedule.interval / (24 * 60 * 60 * 1000));
+      let nextDate = addDays(baseDate, schedule.interval / (24 * 60 * 60 * 1000));
       nextDate = setHours(nextDate, hours);
       nextDate = setMinutes(nextDate, minutes);
 
-      // If calculated time is in past, add interval
-      if (nextDate < new Date()) {
+      // If calculated time is in past, add intervals until we reach future time
+      while (nextDate < new Date()) {
         nextDate = addDays(nextDate, schedule.interval / (24 * 60 * 60 * 1000));
       }
 
       const timeUntilNotification = nextDate.getTime() - Date.now();
+
+      debug.info(`Scheduling notification:`, {
+        type,
+        treeName,
+        lastPerformed: lastPerformed || 'never',
+        nextDate: nextDate.toISOString(),
+        timeUntil: `${Math.round(timeUntilNotification / (1000 * 60 * 60))} hours`
+      });
 
       // Schedule notification
       this.notificationTimers[key] = setTimeout(async () => {
