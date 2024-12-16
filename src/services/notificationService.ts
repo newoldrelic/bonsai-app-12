@@ -84,7 +84,6 @@ class NotificationService {
     notificationTime?: { hours: number; minutes: number }
   ): Promise<void> {
     try {
-      // Log entry point with full context
       debug.info('updateMaintenanceSchedule called', {
         treeId,
         type,
@@ -98,15 +97,11 @@ class NotificationService {
         }
       });
 
-      // Capture stack trace for debugging
-      const triggerStack = new Error().stack;
       const triggerTime = new Date().toISOString();
-
       await this.ensureInitialized();
       
       const key = `${treeId}-${type}`;
 
-      // Clear existing timer
       if (this.notificationTimers[key]) {
         debug.info('Clearing existing timer', { key });
         clearTimeout(this.notificationTimers[key]);
@@ -133,7 +128,6 @@ class NotificationService {
 
       // Set up initial date calculations
       let baseDate;
-      const baseDateSource = lastPerformed ? 'lastPerformed' : 'default';
       if (lastPerformed) {
         baseDate = new Date(lastPerformed);
         debug.info('Using last performed date as base', { lastPerformed });
@@ -173,7 +167,6 @@ class NotificationService {
 
       const timeUntilNotification = nextDate.getTime() - now.getTime();
 
-      // Log detailed timing calculations
       debug.info('Timeout calculation', {
         timeUntilMs: timeUntilNotification,
         timeUntilHours: timeUntilNotification / (1000 * 60 * 60),
@@ -226,7 +219,7 @@ class NotificationService {
 
           if (this.serviceWorkerRegistration) {
             await this.serviceWorkerRegistration.showNotification(`Bonsai Maintenance: ${treeName}`, {
-              body: schedule.message,  // Just show the maintenance message
+              body: schedule.message,
               icon: '/bonsai-icon.png',
               tag: key,
               requireInteraction: true,
