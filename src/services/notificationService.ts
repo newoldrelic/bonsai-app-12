@@ -227,7 +227,7 @@ class NotificationService {
           if (this.serviceWorkerRegistration) {
             await this.serviceWorkerRegistration.showNotification(`Bonsai Maintenance: ${treeName}`, {
               body: schedule.message,  // Just show the maintenance message
-              icon: '/bonsai-icon.svg',
+              icon: '/bonsai-icon.png',
               tag: key,
               requireInteraction: true,
               data: { treeId, type },
@@ -239,7 +239,7 @@ class NotificationService {
           } else {
             new Notification(`Bonsai Maintenance: ${treeName}`, {
               body: schedule.message,
-              icon: '/bonsai-icon.svg',
+              icon: '/bonsai-icon.png',
               tag: key
             });
           }
