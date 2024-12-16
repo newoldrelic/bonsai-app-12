@@ -52,37 +52,24 @@ export function AddTreeForm({ onClose, onSubmit }: AddTreeFormProps) {
     
     try {
       const hasEnabledNotifications = Object.values(formData.notifications).some(value => value);
-
-      // Check notification permission if any notifications are enabled
-      if (hasEnabledNotifications && !areNotificationsEnabled()) {
-        const granted = await requestNotificationPermission();
-        if (!granted) {
-          const confirmed = window.confirm(
-            'Notifications are required for maintenance reminders. Would you like to enable them in your browser settings?'
-          );
-          if (!confirmed) {
-            setFormData(prev => ({
-              ...prev,
-              notifications: Object.keys(prev.notifications).reduce((acc, key) => ({
-                ...acc,
-                [key]: false
-              }), {} as typeof prev.notifications)
-            }));
-          }
-        }
-      }
-
+      console.log('Form submission started', { hasEnabledNotifications, formData });  // Debug line
+  
       // Submit the form data and get the created tree back
       const createdTree = await onSubmit(formData, isSubscribed);
-
+      console.log('Tree created', { createdTree });  // Debug line
+  
       // Setup notifications for the newly created tree
       if (hasEnabledNotifications && areNotificationsEnabled()) {
+        console.log('Setting up notifications');  // Debug line
         const enabledTypes = Object.entries(formData.notifications)
           .filter(([_, enabled]) => enabled)
           .map(([type]) => type as MaintenanceType);
-
+  
+        console.log('Enabled notification types:', enabledTypes);  // Debug line
+  
         for (const type of enabledTypes) {
           try {
+            console.log(`Scheduling notification for ${type}`);  // Debug line
             await notificationService.updateMaintenanceSchedule(
               createdTree.id,
               createdTree.name,
@@ -92,17 +79,18 @@ export function AddTreeForm({ onClose, onSubmit }: AddTreeFormProps) {
               formData.notificationSettings
             );
           } catch (error) {
-            debug.error('Failed to setup notification:', { type, error });
+            console.error(`Failed to setup ${type} notification:`, error);  // Changed to console.error
           }
         }
       }
-
+  
+      // Handle calendar export if requested
       if (addToCalendar) {
         try {
           const selectedTypes = (Object.entries(formData.notifications)
             .filter(([_, enabled]) => enabled)
             .map(([type]) => type)) as MaintenanceType[];
-
+  
           const calendarContent = await generateMaintenanceEvents(
             { ...createdTree, maintenanceLogs: [], userEmail: '' },
             selectedTypes
@@ -112,7 +100,7 @@ export function AddTreeForm({ onClose, onSubmit }: AddTreeFormProps) {
           debug.error('Failed to generate calendar events:', error);
         }
       }
-
+  
       onClose();
     } catch (error) {
       debug.error('Error submitting form:', error);

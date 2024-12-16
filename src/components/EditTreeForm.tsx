@@ -32,19 +32,25 @@ export function EditTreeForm({ tree, onClose, onSubmit, onDelete }: EditTreeForm
     setSubmitting(true);
     
     try {
+      console.log('Edit form submission started', { formData });
+  
       // Update tree data first
       await onSubmit(tree.id, formData);
-
+      console.log('Tree updated');
+  
       // Handle notification changes
       if (areNotificationsEnabled()) {
         // Find notification changes
         const notificationChanges = Object.entries(formData.notifications).filter(
           ([type, enabled]) => enabled !== tree.notifications[type as keyof typeof tree.notifications]
         );
-
+        
+        console.log('Notification changes detected:', notificationChanges);
+  
         // Update notifications if there are changes
         for (const [type, enabled] of notificationChanges) {
           try {
+            console.log(`Updating notification for ${type} to ${enabled}`);
             await notificationService.updateMaintenanceSchedule(
               tree.id,
               formData.name,
@@ -54,25 +60,25 @@ export function EditTreeForm({ tree, onClose, onSubmit, onDelete }: EditTreeForm
               formData.notificationSettings
             );
           } catch (error) {
-            debug.error('Failed to update notification schedule:', { type, error });
+            console.error(`Failed to update ${type} notification:`, error);
           }
         }
       }
-
+  
       // Handle calendar export if requested
       if (addToCalendar) {
         try {
           const selectedTypes = (Object.entries(formData.notifications)
             .filter(([_, enabled]) => enabled)
             .map(([type]) => type)) as MaintenanceType[];
-
+  
           const calendarContent = await generateMaintenanceEvents(formData, selectedTypes);
           downloadCalendarFile(calendarContent, `${formData.name}-maintenance.ics`);
         } catch (error) {
           debug.error('Failed to generate calendar events:', error);
         }
       }
-
+  
       onClose();
     } catch (error) {
       debug.error('Error updating tree:', error);
