@@ -136,10 +136,16 @@ class NotificationService {
 
       const timeUntilNotification = nextDate.getTime() - now.getTime();
 
+      // Add this debug info at the point of calculation
+      debug.info(`Timeout calculation:`, {
+        timeUntilMs: timeUntilNotification,
+        timeUntilHours: timeUntilNotification / (1000 * 60 * 60)
+      });
+
       // Safeguard against immediate or past notifications
       if (timeUntilNotification <= 1000) { // Less than 1 second
-        debug.info(`Skipping immediate notification for ${type}, scheduling for next interval`);
-        nextDate.setTime(nextDate.getTime() + schedule.interval);
+        debug.info('Adjusting schedule to prevent immediate notification');
+        nextDate = new Date(nextDate.getTime() + schedule.interval);
       }
 
       debug.info('Scheduling notification:', {
