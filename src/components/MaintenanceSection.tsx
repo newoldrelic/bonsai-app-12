@@ -113,12 +113,24 @@ export function MaintenanceSection({
 
   const enableNotification = async (type: keyof NotificationPreferences) => {
     try {
+      // Debug notification - Starting
+      await notificationService.showNotification('Debug: Starting enableNotification', {
+        body: `Starting to enable ${type} notifications`,
+        tag: 'debug-start'
+      });
+
       await notificationService.init();
       const permission = await Notification.requestPermission();
       
       if (permission === 'granted') {
         onNotificationChange(type, true);
         setError(null);
+
+        // Debug notification - Permission granted
+        await notificationService.showNotification('Debug: Permission Granted', {
+          body: `Permission granted for ${type} notifications`,
+          tag: 'debug-permission'
+        });
 
         if (!hasEnabledNotifications) {
           new Notification('Bonsai Care Notifications Enabled', {
@@ -128,9 +140,19 @@ export function MaintenanceSection({
         }
       } else {
         setError('Please allow notifications when prompted');
+        // Debug notification - Permission denied
+        await notificationService.showNotification('Debug: Permission Denied', {
+          body: `Permission denied for ${type} notifications`,
+          tag: 'debug-denied'
+        });
       }
     } catch (error) {
       setError(`Failed to enable notifications: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      // Debug notification - Error
+      await notificationService.showNotification('Debug: Error', {
+        body: `Error enabling ${type} notifications: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        tag: 'debug-error'
+      });
     }
   };
 
@@ -149,6 +171,12 @@ export function MaintenanceSection({
 
   const handleNotificationToggle = async (type: keyof NotificationPreferences, enabled: boolean) => {
     try {
+      // Debug notification - Toggle started
+      await notificationService.showNotification('Debug: Toggle Started', {
+        body: `Starting toggle for ${type}: ${enabled ? 'ON' : 'OFF'}`,
+        tag: 'debug-toggle-start'
+      });
+
       if (isIOS()) {
         onNotificationChange(type, enabled);
         return;
@@ -169,6 +197,12 @@ export function MaintenanceSection({
             // Permission was granted, proceed with enabling notification
             onNotificationChange(type, enabled);
             setError(null);
+
+            // Debug notification - Toggle successful
+            await notificationService.showNotification('Debug: Toggle Success', {
+              body: `Successfully enabled ${type} notifications`,
+              tag: 'debug-toggle-success'
+            });
           } else {
             // Only show instructions if permission was actually denied
             if (Notification.permission === 'denied') {
@@ -179,21 +213,43 @@ export function MaintenanceSection({
                 '3. Tap "Notifications"\n' +
                 '4. Toggle notifications on'
               );
+
+              // Debug notification - Permission denied
+              await notificationService.showNotification('Debug: Permission Denied', {
+                body: `Permission denied for ${type} notifications`,
+                tag: 'debug-toggle-denied'
+              });
             }
           }
         } catch (error) {
           setError(`Failed to enable notifications: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          // Debug notification - Error
+          await notificationService.showNotification('Debug: Toggle Error', {
+            body: `Error enabling ${type} notifications: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            tag: 'debug-toggle-error'
+          });
         }
       } else {
         // Disabling notifications - just update state
         onNotificationChange(type, enabled);
         setError(null);
+
+        // Debug notification - Toggle off
+        await notificationService.showNotification('Debug: Toggle Off', {
+          body: `Successfully disabled ${type} notifications`,
+          tag: 'debug-toggle-off'
+        });
       }
     } catch (error) {
       debug.error('Error in handleNotificationToggle:', error);
       setError(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      // Debug notification - Unexpected error
+      await notificationService.showNotification('Debug: Unexpected Error', {
+        body: `Unexpected error in toggle: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        tag: 'debug-unexpected'
+      });
     }
-};
+  };
 
   const handleTimeChange = (hours: number, minutes: number) => {
     try {
