@@ -84,6 +84,10 @@ class NotificationService {
     notificationTime?: { hours: number; minutes: number }
   ): Promise<void> {
     try {
+      // Capture stack trace for debugging
+      const triggerStack = new Error().stack;
+      const triggerTime = new Date().toISOString();
+
       await this.ensureInitialized();
       
       const key = `${treeId}-${type}`;
@@ -108,6 +112,7 @@ class NotificationService {
       
       // Set up initial date calculations
       let baseDate;
+      const baseDateSource = lastPerformed ? 'lastPerformed' : 'default';
       if (lastPerformed) {
         baseDate = new Date(lastPerformed);
       } else {
@@ -130,8 +135,10 @@ class NotificationService {
       nextDate.setMilliseconds(0);
 
       // If next date is in the past, add intervals until we reach a future time
+      let intervalsAdded = 0;
       while (nextDate <= now) {
         nextDate.setTime(nextDate.getTime() + schedule.interval);
+        intervalsAdded++;
       }
 
       const timeUntilNotification = nextDate.getTime() - now.getTime();
@@ -166,13 +173,22 @@ class NotificationService {
           if (this.serviceWorkerRegistration) {
             const debugMessage = `${schedule.message}\n\n` + 
               `Debug Info:\n` +
-              `Last Performed: ${lastPerformed ? new Date(lastPerformed).toLocaleString() : 'never'}\n` +
-              `Base Date: ${baseDate.toLocaleString()}\n` +
-              `Scheduled For: ${nextDate.toLocaleString()}\n` +
-              `Actual Time: ${new Date().toLocaleString()}\n` +
-              `Interval: ${schedule.interval / (24 * 60 * 60 * 1000)} days\n` +
-              `Time Until Next: ${Math.floor(timeUntilNotification / (1000 * 60 * 60))}h ${Math.floor((timeUntilNotification % (1000 * 60 * 60)) / (1000 * 60))}m\n` +
-              `Notification Time: ${notificationTime?.hours ?? 9}:${(notificationTime?.minutes ?? 0).toString().padStart(2, '0')}`;
+              `Trigger Details:\n` +
+              `Trigger Stack:\n${triggerStack}\n\n` +
+              `- Base Date Source: ${baseDateSource}\n` +
+              `- Intervals Added: ${intervalsAdded}\n` +
+              `Timing Info:\n` +
+              `- Last Performed: ${lastPerformed ? new Date(lastPerformed).toLocaleString() : 'never'}\n` +
+              `- Base Date: ${baseDate.toLocaleString()}\n` +
+              `- Scheduled For: ${nextDate.toLocaleString()}\n` +
+              `- Actual Time: ${new Date().toLocaleString()}\n` +
+              `- Interval: ${schedule.interval / (24 * 60 * 60 * 1000)} days\n` +
+              `- Time Until Next: ${Math.floor(timeUntilNotification / (1000 * 60 * 60))}h ${Math.floor((timeUntilNotification % (1000 * 60 * 60)) / (1000 * 60))}m\n` +
+              `Settings:\n` +
+              `- Notification Time: ${notificationTime?.hours ?? 9}:${(notificationTime?.minutes ?? 0).toString().padStart(2, '0')}\n` +
+              `- Tree ID: ${treeId}\n` +
+              `- Maintenance Type: ${type}\n\n` +
+              `- Time: ${triggerTime}`;
       
             await this.serviceWorkerRegistration.showNotification(`Bonsai Maintenance: ${treeName}`, {
               body: debugMessage,
