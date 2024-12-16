@@ -143,7 +143,7 @@ class NotificationService {
       });
 
       // Safeguard against immediate or past notifications
-      if (timeUntilNotification <= 2000) { // Less than 2 seconds
+      if (timeUntilNotification <= 1000) { // Less than 1 second
         debug.info('Adjusting schedule to prevent immediate notification');
         nextDate = new Date(nextDate.getTime() + schedule.interval);
       }
@@ -164,10 +164,18 @@ class NotificationService {
       this.notificationTimers[key] = setTimeout(async () => {
         try {
           if (this.serviceWorkerRegistration) {
-            const debugMessage = `${schedule.message}\n\nDebug Info:\nScheduled: ${nextDate.toLocaleString()}\nActual: ${new Date().toLocaleString()}\nInterval: ${schedule.interval / (24 * 60 * 60 * 1000)} days\ntimeUntilNotification: ${debug.info}`;
+            const debugMessage = `${schedule.message}\n\n` + 
+              `Debug Info:\n` +
+              `Last Performed: ${lastPerformed ? new Date(lastPerformed).toLocaleString() : 'never'}\n` +
+              `Base Date: ${baseDate.toLocaleString()}\n` +
+              `Scheduled For: ${nextDate.toLocaleString()}\n` +
+              `Actual Time: ${new Date().toLocaleString()}\n` +
+              `Interval: ${schedule.interval / (24 * 60 * 60 * 1000)} days\n` +
+              `Time Until Next: ${Math.floor(timeUntilNotification / (1000 * 60 * 60))}h ${Math.floor((timeUntilNotification % (1000 * 60 * 60)) / (1000 * 60))}m\n` +
+              `Notification Time: ${notificationTime?.hours ?? 9}:${(notificationTime?.minutes ?? 0).toString().padStart(2, '0')}`;
       
             await this.serviceWorkerRegistration.showNotification(`Bonsai Maintenance: ${treeName}`, {
-              body: debugMessage,  // Modified to use our debug message
+              body: debugMessage,
               icon: '/bonsai-icon.png',
               tag: key,
               requireInteraction: true,
