@@ -64,44 +64,61 @@ export function TestScheduledNotificationButton() {
 // bare bones notification to test browser
 import React from 'react';
 
-export function BasicTestButton() {
-  const handleClick = async () => {
-    console.log('Button clicked');
-    
-    try {
-      // First, request permission again explicitly
-      const permission = await Notification.requestPermission();
-      console.log('Current permission:', permission);
+export function NotificationDebugButton() {
+  const testBasicNotification = () => {
+    console.log('Testing basic notification');
+    new Notification('Basic Test', {
+      body: 'Direct browser notification'
+    });
+  };
 
-      const registration = await navigator.serviceWorker.getRegistration('/notification-worker.js');
-      console.log('Service worker registration:', registration ? 'found' : 'not found');
-      
-      if (registration) {
-        await registration.showNotification('Test Service Worker Notification', {
-          body: 'This is a test notification via service worker',
-          icon: '/bonsai-icon.png',
-          tag: 'test-sw',
-          requireInteraction: true,
-          silent: false, // Ensure sound is enabled
-          vibrate: [200, 100, 200], // Add vibration pattern
-          actions: [ // Add actions to make notification more interactive
-            { action: 'test', title: 'Test Action' }
-          ]
-        });
-        console.log('Service worker notification requested');
-      }
-    } catch (error) {
-      console.error('Notification error:', error);
+  const testServiceWorkerNotification = async () => {
+    console.log('Testing service worker notification');
+    const registration = await navigator.serviceWorker.getRegistration();
+    if (registration) {
+      await registration.showNotification('Service Worker Test', {
+        body: 'Via service worker'
+      });
     }
   };
 
+  const checkNotificationStatus = () => {
+    console.log('=== Notification Status ===');
+    console.log('Notification API available:', 'Notification' in window);
+    console.log('Permission:', Notification.permission);
+    console.log('Service Worker API available:', 'serviceWorker' in navigator);
+    navigator.serviceWorker.getRegistration().then(registration => {
+      console.log('Service Worker registered:', !!registration);
+      if (registration) {
+        console.log('Service Worker state:', registration.active?.state);
+      }
+    });
+  };
+
   return (
-    <button
-      onClick={handleClick}
-      className="px-4 py-2 bg-red-500 text-white rounded-lg"
-    >
-      Test Mac Notification
-    </button>
+    <div className="space-y-2">
+      <div className="text-sm text-gray-600">Notification Debug Panel</div>
+      <div className="space-x-2">
+        <button
+          onClick={testBasicNotification}
+          className="px-4 py-2 bg-blue-500 text-white rounded-lg"
+        >
+          Test Basic
+        </button>
+        <button
+          onClick={testServiceWorkerNotification}
+          className="px-4 py-2 bg-green-500 text-white rounded-lg"
+        >
+          Test Service Worker
+        </button>
+        <button
+          onClick={checkNotificationStatus}
+          className="px-4 py-2 bg-yellow-500 text-white rounded-lg"
+        >
+          Check Status
+        </button>
+      </div>
+    </div>
   );
 }
 // end bare bones button for browser
@@ -299,7 +316,7 @@ export function LandingPage() {
   <TestScheduledNotificationButton />
 </div>
 <div>
-  <BasicTestButton />
+  <NotificationDebugButton />
 </div>
                   {trees.length === 0 && (
                     <button 
