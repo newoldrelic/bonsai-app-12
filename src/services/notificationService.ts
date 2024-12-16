@@ -57,8 +57,6 @@ class NotificationService {
 
   async requestPermission(): Promise<boolean> {
     try {
-      debug.info('Requesting notification permission, current state:', Notification.permission);
-      
       // Check current permission state
       if (Notification.permission === 'granted') {
         return true;
@@ -67,16 +65,7 @@ class NotificationService {
       // Request permission only if not already denied
       if (Notification.permission !== 'denied') {
         const permission = await Notification.requestPermission();
-        debug.info('Permission request result:', permission);
-        
-        if (permission === 'granted') {
-          // Remove the welcome notification - this might be causing duplicates
-          // new Notification('Bonsai Care Notifications Enabled', {
-          //   body: 'You will now receive maintenance reminders for your bonsai trees.',
-          //   icon: '/bonsai-icon.png'
-          // });
-          return true;
-        }
+        return permission === 'granted';
       }
       
       return false;
@@ -85,7 +74,7 @@ class NotificationService {
       return false;
     }
   }
-  
+
   async updateMaintenanceSchedule(
     treeId: string,
     treeName: string,
@@ -95,84 +84,124 @@ class NotificationService {
     notificationTime?: { hours: number; minutes: number }
   ): Promise<void> {
     try {
-      debug.info('Starting updateMaintenanceSchedule:', {
-        treeId,
-        treeName,
-        type,
-        enabled,
-        lastPerformed,
-        notificationTime
-      });
-  
       await this.ensureInitialized();
       
       const key = `${treeId}-${type}`;
-  
+
       // Clear existing timer
       if (this.notificationTimers[key]) {
-        debug.info('Clearing existing timer for:', key);
         clearTimeout(this.notificationTimers[key]);
         delete this.notificationTimers[key];
       }
-  
+
       if (!enabled) {
         debug.info(`Notifications disabled for ${treeName} - ${type}`);
         return;
       }
-  
+
       if (Notification.permission !== 'granted') {
         throw new Error('Notification permission required');
       }
-  
+
       const schedule = MAINTENANCE_SCHEDULES[type];
+      const now = new Date();
       
-      // Calculate base date - if never performed, start scheduling from now
-      let baseDate = lastPerformed ? new Date(lastPerformed) : new Date();
-      
-      // For new tasks without lastPerformed, set base date to now minus one interval
-      // This prevents immediate notification
-      if (!lastPerformed) {
-        debug.info('No lastPerformed date, adjusting base date');
-        baseDate = new Date(baseDate.getTime() - schedule.interval);
+      // Set up initial date calculations
+      let baseDate;
+      if (lastPerformed) {
+        baseDate = new Date(lastPerformed);
+      } else {
+        // If never performed, start from today at specified time
+        baseDate = new Date();
+        baseDate.setHours(notificationTime?.hours ?? 9);
+        baseDate.setMinutes(notificationTime?.minutes ?? 0);
+        baseDate.setSeconds(0);
+        baseDate.setMilliseconds(0);
+        
+        // Move back one interval to ensure first notification isn't immediate
+        baseDate.setTime(baseDate.getTime() - schedule.interval);
       }
-      
-      const hours = notificationTime?.hours ?? 9;
-      const minutes = notificationTime?.minutes ?? 0;
-      
+
       // Calculate next notification time
-      let nextDate = addDays(baseDate, schedule.interval / (24 * 60 * 60 * 1000));
-      nextDate = setHours(nextDate, hours);
-      nextDate = setMinutes(nextDate, minutes);
-  
-      debug.info('Initial next date calculation:', nextDate.toISOString());
-  
-      // If calculated time is in past, add intervals until we reach future time
-      while (nextDate < new Date()) {
-        debug.info('Next date is in past, adding interval');
-        nextDate = addDays(nextDate, schedule.interval / (24 * 60 * 60 * 1000));
+      let nextDate = new Date(baseDate.getTime() + schedule.interval);
+      nextDate.setHours(notificationTime?.hours ?? 9);
+      nextDate.setMinutes(notificationTime?.minutes ?? 0);
+      nextDate.setSeconds(0);
+      nextDate.setMilliseconds(0);
+
+      // If next date is in the past, add intervals until we reach a future time
+      while (nextDate <= now) {
+        nextDate.setTime(nextDate.getTime() + schedule.interval);
       }
-  
-      const timeUntilNotification = nextDate.getTime() - Date.now();
-      debug.info('Time until notification:', {
-        hours: timeUntilNotification / (1000 * 60 * 60),
-        minutes: (timeUntilNotification / (1000 * 60)) % 60
+
+      const timeUntilNotification = nextDate.getTime() - now.getTime();
+
+      // Safeguard against immediate or past notifications
+      if (timeUntilNotification <= 1000) { // Less than 1 second
+        debug.info(`Skipping immediate notification for ${type}, scheduling for next interval`);
+        nextDate.setTime(nextDate.getTime() + schedule.interval);
+      }
+
+      debug.info('Scheduling notification:', {
+        type,
+        treeName,
+        lastPerformed: lastPerformed || 'never',
+        baseDate: baseDate.toISOString(),
+        nextDate: nextDate.toISOString(),
+        timeUntil: {
+          hours: Math.floor(timeUntilNotification / (1000 * 60 * 60)),
+          minutes: Math.floor((timeUntilNotification % (1000 * 60 * 60)) / (1000 * 60))
+        }
       });
-  
-      if (timeUntilNotification <= 0) {
-        debug.warn('Preventing immediate notification - time until notification is <= 0');
-        return;
-      }
-  
+
       // Schedule notification
       this.notificationTimers[key] = setTimeout(async () => {
-        // ... rest of the notification code ...
-      }, Math.max(0, timeUntilNotification));
-  
+        try {
+          if (this.serviceWorkerRegistration) {
+            await this.serviceWorkerRegistration.showNotification(`Bonsai Maintenance: ${treeName}`, {
+              body: schedule.message,
+              icon: '/bonsai-icon.png',
+              tag: key,
+              requireInteraction: true,
+              data: { treeId, type },
+              actions: [
+                { action: 'done', title: 'Mark as Done' },
+                { action: 'snooze', title: 'Snooze 1hr' }
+              ]
+            });
+          } else {
+            new Notification(`Bonsai Maintenance: ${treeName}`, {
+              body: schedule.message,
+              icon: '/bonsai-icon.png',
+              tag: key
+            });
+          }
+
+          // Schedule next notification
+          this.updateMaintenanceSchedule(
+            treeId, 
+            treeName, 
+            type, 
+            true, 
+            nextDate.toISOString(),
+            { hours: nextDate.getHours(), minutes: nextDate.getMinutes() }
+          );
+        } catch (error) {
+          debug.error('Failed to show notification:', error);
+        }
+      }, timeUntilNotification);
+
       debug.info(`Scheduled ${type} notification for ${treeName} at ${nextDate.toISOString()}`);
     } catch (error) {
       debug.error('Error updating maintenance schedule:', error);
       throw error;
     }
   }
+
+  private clearAllTimers(): void {
+    Object.values(this.notificationTimers).forEach(timer => clearTimeout(timer));
+    this.notificationTimers = {};
+  }
+}
 
 export const notificationService = new NotificationService();
