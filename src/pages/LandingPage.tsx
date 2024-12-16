@@ -69,7 +69,10 @@ export function BasicTestButton() {
     console.log('Button clicked');
     
     try {
-      // Try service worker notification
+      // First, request permission again explicitly
+      const permission = await Notification.requestPermission();
+      console.log('Current permission:', permission);
+
       const registration = await navigator.serviceWorker.getRegistration('/notification-worker.js');
       console.log('Service worker registration:', registration ? 'found' : 'not found');
       
@@ -78,16 +81,14 @@ export function BasicTestButton() {
           body: 'This is a test notification via service worker',
           icon: '/bonsai-icon.png',
           tag: 'test-sw',
-          requireInteraction: true
+          requireInteraction: true,
+          silent: false, // Ensure sound is enabled
+          vibrate: [200, 100, 200], // Add vibration pattern
+          actions: [ // Add actions to make notification more interactive
+            { action: 'test', title: 'Test Action' }
+          ]
         });
         console.log('Service worker notification requested');
-      } else {
-        console.log('No service worker found, trying direct notification');
-        new Notification('Test Direct Notification', {
-          body: 'This is a test notification directly',
-          icon: '/bonsai-icon.png',
-          tag: 'test-direct'
-        });
       }
     } catch (error) {
       console.error('Notification error:', error);
@@ -99,7 +100,7 @@ export function BasicTestButton() {
       onClick={handleClick}
       className="px-4 py-2 bg-red-500 text-white rounded-lg"
     >
-      Test SW Notification
+      Test Mac Notification
     </button>
   );
 }
