@@ -225,30 +225,9 @@ class NotificationService {
           }
 
           if (this.serviceWorkerRegistration) {
-            const debugMessage = `${schedule.message}\n\n` + 
-              //`Debug Info:\n` +
-              //`Trigger Details:\n` +
-              //`- Time: ${triggerTime}\n` +
-              //`- Base Date Source: ${baseDateSource}\n` +
-              //`- Intervals Added: ${intervalsAdded}\n` +
-              //`Timing Info:\n` +
-              `- Last Performed: ${lastPerformed ? new Date(lastPerformed).toLocaleString() : 'never'}\n` +
-              `- Base Date: ${baseDate.toLocaleString()}\n` +
-              `- Scheduled For: ${nextDate.toLocaleString()}\n` +
-              `- Actual Time: ${new Date().toLocaleString()}\n` +
-              //`- Interval: ${schedule.interval / (24 * 60 * 60 * 1000)} days\n` +
-              `- Time Until Next: ${Math.floor(timeUntilNotification / (1000 * 60 * 60))}h ${Math.floor((timeUntilNotification % (1000 * 60 * 60)) / (1000 * 60))}m\n` +
-              `- Expected Delay: ${timeUntilNotification}ms\n` +
-              `- Actual Delay: ${actualDelay}ms\n` +
-              //`Settings:\n` +
-              `- Notification Time: ${notificationTime?.hours ?? 9}:${(notificationTime?.minutes ?? 0).toString().padStart(2, '0')}\n` +
-              //`- Tree ID: ${treeId}\n` +
-              //`- Maintenance Type: ${type}\n\n` +
-              `Trigger Stack:\n${triggerStack}`;
-      
             await this.serviceWorkerRegistration.showNotification(`Bonsai Maintenance: ${treeName}`, {
-              body: debugMessage,
-              icon: '/bonsai-icon.png',
+              body: schedule.message,  // Just show the maintenance message
+              icon: '/bonsai-icon.svg',
               tag: key,
               requireInteraction: true,
               data: { treeId, type },
@@ -258,10 +237,9 @@ class NotificationService {
               ]
             });
           } else {
-            // Also update the fallback notification
             new Notification(`Bonsai Maintenance: ${treeName}`, {
-              body: debugMessage,
-              icon: '/bonsai-icon.png',
+              body: schedule.message,
+              icon: '/bonsai-icon.svg',
               tag: key
             });
           }
