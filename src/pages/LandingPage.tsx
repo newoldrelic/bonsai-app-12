@@ -32,6 +32,7 @@ export function TestNotificationButton() {
 }
 //import { TestNotificationButton } from './TestNotificationButton';
 // end notification test button
+
 // scheduled notification test button
 import React from 'react';
 import { Clock } from 'lucide-react';
@@ -59,6 +60,34 @@ export function TestScheduledNotificationButton() {
   );
 }
 // end scheduled notification test button
+
+// bare bones notification to test browser
+import React from 'react';
+
+export function BasicTestButton() {
+  const handleClick = () => {
+    console.log('Button clicked');
+    
+    // Basic browser notification check
+    console.log('Notification support:', 'Notification' in window);
+    console.log('Current permission:', Notification.permission);
+    
+    try {
+      new Notification('Test');
+    } catch (error) {
+      console.error('Notification error:', error);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleClick}
+      className="px-4 py-2 bg-red-500 text-white rounded-lg">
+      Basic Notification Test
+    </button>
+  );
+}
+// end bare bones button for browser
 
 export function LandingPage() {
   const navigate = useNavigate();
@@ -251,6 +280,9 @@ export function LandingPage() {
 </div>
 <div>
   <TestScheduledNotificationButton />
+</div>
+<div>
+  <BasicTestButton />
 </div>
                   {trees.length === 0 && (
                     <button 
