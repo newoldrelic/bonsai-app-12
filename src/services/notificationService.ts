@@ -64,6 +64,28 @@ class NotificationService {
     }
   }
 
+  async showNotification(title: string, options: { body: string; tag: string }): Promise<void> {
+    try {
+      await this.ensureInitialized();
+      
+      if (this.serviceWorkerRegistration) {
+        await this.serviceWorkerRegistration.showNotification(title, {
+          ...options,
+          icon: '/bonsai-icon.png',
+          requireInteraction: true
+        });
+      } else {
+        new Notification(title, {
+          ...options,
+          icon: '/bonsai-icon.png'
+        });
+      }
+    } catch (error) {
+      debug.error('Failed to show debug notification:', error);
+      throw error;
+    }
+  }
+
   async requestPermission(): Promise<boolean> {
     try {
       debug.info('Requesting notification permission');
@@ -108,6 +130,11 @@ class NotificationService {
         permission: Notification.permission,
         initialized: this.initialized,
         serviceWorker: !!this.serviceWorkerRegistration
+      });
+
+      await this.showNotification('Debug: Schedule Update Starting', {
+        body: `Starting schedule update for ${type} - ${enabled ? 'ON' : 'OFF'}`,
+        tag: 'debug-schedule-start'
       });
 
       await this.ensureInitialized();
@@ -180,6 +207,11 @@ class NotificationService {
 
       const timeUntilNotification = nextDate.getTime() - now.getTime();
 
+      await this.showNotification('Debug: Schedule Calculated', {
+        body: `Next notification in ${Math.floor(timeUntilNotification / (1000 * 60 * 60))}h ${Math.floor((timeUntilNotification % (1000 * 60 * 60)) / (1000 * 60))}m`,
+        tag: 'debug-schedule-calc'
+      });
+
       debug.info('Timeout calculation', {
         timeUntilMs: timeUntilNotification,
         timeUntilHours: timeUntilNotification / (1000 * 60 * 60),
@@ -249,17 +281,29 @@ class NotificationService {
           );
         } catch (error) {
           debug.error('Failed to show notification:', error);
+          await this.showNotification('Debug: Notification Error', {
+            body: `Error showing notification: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            tag: 'debug-notification-error'
+          });
         }
       }, timeUntilNotification);
 
       debug.info(`Scheduled ${type} notification for ${treeName} at ${nextDate.toISOString()}`);
+      
+      await this.showNotification('Debug: Schedule Complete', {
+        body: `Scheduled ${type} notification for ${nextDate.toLocaleString()}`,
+        tag: 'debug-schedule-complete'
+      });
     } catch (error) {
       debug.error('Error updating maintenance schedule:', error);
+      await this.showNotification('Debug: Schedule Error', {
+        body: `Error updating schedule: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        tag: 'debug-schedule-error'
+      });
       throw error;
     }
   }
 
-  // test notification
   async testNotification(): Promise<void> {
     try {
       debug.info('Testing notification service...');
@@ -296,14 +340,11 @@ class NotificationService {
       throw error;
     }
   }
-  // end test notification
 
-  // test schedule notification
   async testScheduledNotification(): Promise<void> {
     try {
       debug.info('Testing scheduled notification...');
       
-      // Schedule a notification for 1 minute from now
       await this.updateMaintenanceSchedule(
         'test-tree',
         'Test Tree',
@@ -322,7 +363,7 @@ class NotificationService {
       throw error;
     }
   }
-  // end test schedule notification
+
   private clearAllTimers(): void {
     Object.values(this.notificationTimers).forEach(timer => clearTimeout(timer));
     this.notificationTimers = {};
