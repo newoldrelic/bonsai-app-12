@@ -65,7 +65,7 @@ export function TestScheduledNotificationButton() {
 import React from 'react';
 
 export function BasicTestButton() {
-  const handleClick = () => {
+  const handleClick = async () => {
     console.log('Button clicked');
     
     // Basic browser notification check
@@ -73,16 +73,34 @@ export function BasicTestButton() {
     console.log('Current permission:', Notification.permission);
     
     try {
-      new Notification('Test');
+      const notification = new Notification('Test Basic Notification', {
+        body: 'This is a test notification',
+        icon: '/bonsai-icon.png',
+        tag: 'test-basic'
+      });
+
+      notification.onclick = () => {
+        console.log('Notification clicked');
+      };
+
+      notification.onshow = () => {
+        console.log('Notification shown');
+      };
+
+      notification.onerror = (error) => {
+        console.error('Notification error:', error);
+      };
+
     } catch (error) {
-      console.error('Notification error:', error);
+      console.error('Notification creation error:', error);
     }
   };
 
   return (
     <button
       onClick={handleClick}
-      className="px-4 py-2 bg-red-500 text-white rounded-lg">
+      className="px-4 py-2 bg-red-500 text-white rounded-lg"
+    >
       Basic Notification Test
     </button>
   );
