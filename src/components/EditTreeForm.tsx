@@ -6,8 +6,8 @@ import { StyleSelector } from './StyleSelector';
 import { MaintenanceSection } from './MaintenanceSection';
 import { generateMaintenanceEvents, downloadCalendarFile } from '../utils/calendar';
 import { notificationService } from '../services/notificationService';
-import { debug } from '../utils/debug';
 import { areNotificationsEnabled } from '../utils/notifications';
+import { debug } from '../utils/debug';
 
 interface EditTreeFormProps {
   tree: BonsaiTree;
@@ -29,30 +29,20 @@ export function EditTreeForm({ tree, onClose, onSubmit, onDelete }: EditTreeForm
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitting) return;
-
     setSubmitting(true);
     
     try {
-      debug.info('Updating tree', { 
-        treeId: tree.id,
-        updates: formData
-      });
-
-      // Find notification changes
-      const notificationChanges = Object.entries(formData.notifications).filter(
-        ([type, enabled]) => enabled !== tree.notifications[type as keyof typeof tree.notifications]
-      );
-
-      debug.info('Processing notification changes', { 
-        treeId: tree.id,
-        changes: notificationChanges 
-      });
-
       // Update tree data first
       await onSubmit(tree.id, formData);
 
-      // Then handle notification changes if notifications are enabled
-      if (notificationChanges.length > 0 && areNotificationsEnabled()) {
+      // Handle notification changes
+      if (areNotificationsEnabled()) {
+        // Find notification changes
+        const notificationChanges = Object.entries(formData.notifications).filter(
+          ([type, enabled]) => enabled !== tree.notifications[type as keyof typeof tree.notifications]
+        );
+
+        // Update notifications if there are changes
         for (const [type, enabled] of notificationChanges) {
           try {
             await notificationService.updateMaintenanceSchedule(
@@ -63,16 +53,8 @@ export function EditTreeForm({ tree, onClose, onSubmit, onDelete }: EditTreeForm
               formData.lastMaintenance?.[type],
               formData.notificationSettings
             );
-            debug.info(`Updated notification schedule for ${type}`, {
-              treeId: tree.id,
-              enabled
-            });
           } catch (error) {
-            debug.error('Failed to update notification schedule:', {
-              type,
-              error,
-              treeId: tree.id
-            });
+            debug.error('Failed to update notification schedule:', { type, error });
           }
         }
       }
@@ -114,37 +96,29 @@ export function EditTreeForm({ tree, onClose, onSubmit, onDelete }: EditTreeForm
   const handleDelete = async () => {
     if (onDelete) {
       try {
-        debug.info('Starting tree deletion process', { treeId: tree.id });
-
-        // Clean up all notifications for this tree
+        // Clean up notifications before deleting
         const enabledTypes = Object.entries(tree.notifications)
           .filter(([_, enabled]) => enabled)
           .map(([type]) => type as MaintenanceType);
-          
-        debug.info('Cleaning up notifications for deleted tree:', {
-          treeId: tree.id,
-          enabledTypes
-        });
 
+        // Disable all notifications for this tree
         for (const type of enabledTypes) {
           try {
             await notificationService.updateMaintenanceSchedule(
               tree.id,
               tree.name,
               type,
-              false,  // disable all notifications
+              false,
               undefined,
               formData.notificationSettings
             );
-            debug.info(`Disabled notifications for ${type}`, { treeId: tree.id });
           } catch (error) {
             debug.error('Failed to cleanup notification:', { type, error });
           }
         }
 
-        // Then delete the tree
+        // Delete the tree
         await onDelete(tree.id);
-        debug.info('Tree deleted successfully', { treeId: tree.id });
         onClose();
       } catch (error) {
         debug.error('Error deleting tree:', error);
@@ -153,14 +127,6 @@ export function EditTreeForm({ tree, onClose, onSubmit, onDelete }: EditTreeForm
   };
 
   const handleNotificationChange = (type: keyof typeof formData.notifications, enabled: boolean) => {
-    debug.info('EditTreeForm: Notification toggle requested', { 
-      treeId: tree.id,
-      type, 
-      enabled,
-      currentState: formData.notifications[type]
-    });
-
-    // Just update form state - actual scheduling happens on save
     setFormData(prev => ({
       ...prev,
       notifications: {

@@ -48,73 +48,55 @@ export function AddTreeForm({ onClose, onSubmit }: AddTreeFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitting) return;
-    
     setSubmitting(true);
     
     try {
-      debug.info('Submitting new tree form', { 
-        formData,
-        enabledNotifications: Object.entries(formData.notifications).filter(([_, enabled]) => enabled)
-      });
+      const hasEnabledNotifications = Object.values(formData.notifications).some(value => value);
 
       // Check notification permission if any notifications are enabled
-      const hasEnabledNotifications = Object.values(formData.notifications).some(value => value);
-      if (hasEnabledNotifications) {
-        if (!areNotificationsEnabled()) {
-          const granted = await requestNotificationPermission();
-          if (!granted) {
-            const confirmed = window.confirm(
-              'Notifications are required for maintenance reminders. Would you like to enable them in your browser settings?'
-            );
-            if (!confirmed) {
-              setFormData(prev => ({
-                ...prev,
-                notifications: Object.keys(prev.notifications).reduce((acc, key) => ({
-                  ...acc,
-                  [key]: false
-                }), {} as typeof prev.notifications)
-              }));
-            }
+      if (hasEnabledNotifications && !areNotificationsEnabled()) {
+        const granted = await requestNotificationPermission();
+        if (!granted) {
+          const confirmed = window.confirm(
+            'Notifications are required for maintenance reminders. Would you like to enable them in your browser settings?'
+          );
+          if (!confirmed) {
+            setFormData(prev => ({
+              ...prev,
+              notifications: Object.keys(prev.notifications).reduce((acc, key) => ({
+                ...acc,
+                [key]: false
+              }), {} as typeof prev.notifications)
+            }));
           }
         }
       }
 
       // Submit the form data and get the created tree back
       const createdTree = await onSubmit(formData, isSubscribed);
-      debug.info('Tree created successfully', { createdTree });
 
       // Setup notifications for the newly created tree
       if (hasEnabledNotifications && areNotificationsEnabled()) {
-        const enabledNotifications = Object.entries(formData.notifications)
-          .filter(([_, enabled]) => enabled);
-          
-        debug.info('Setting up notifications for new tree:', {
-          treeId: createdTree.id,
-          enabledNotifications
-        });
+        const enabledTypes = Object.entries(formData.notifications)
+          .filter(([_, enabled]) => enabled)
+          .map(([type]) => type as MaintenanceType);
 
-        for (const [type, enabled] of enabledNotifications) {
+        for (const type of enabledTypes) {
           try {
             await notificationService.updateMaintenanceSchedule(
               createdTree.id,
               createdTree.name,
-              type as MaintenanceType,
-              enabled,
+              type,
+              true,
               undefined,
               formData.notificationSettings
             );
-            debug.info(`Notification scheduled for ${type}`, {
-              treeId: createdTree.id,
-              type,
-              settings: formData.notificationSettings
-            });
           } catch (error) {
             debug.error('Failed to setup notification:', { type, error });
           }
         }
       }
 
-      // Handle calendar export if requested
       if (addToCalendar) {
         try {
           const selectedTypes = (Object.entries(formData.notifications)
@@ -130,11 +112,12 @@ export function AddTreeForm({ onClose, onSubmit }: AddTreeFormProps) {
           debug.error('Failed to generate calendar events:', error);
         }
       }
+
+      onClose();
     } catch (error) {
       debug.error('Error submitting form:', error);
     } finally {
       setSubmitting(false);
-      onClose();
     }
   };
 
@@ -158,7 +141,6 @@ export function AddTreeForm({ onClose, onSubmit }: AddTreeFormProps) {
   };
 
   const handleNotificationChange = (type: keyof typeof formData.notifications, enabled: boolean) => {
-    debug.info('AddTreeForm: Notification toggle requested', { type, enabled });
     setFormData(prev => ({
       ...prev,
       notifications: {

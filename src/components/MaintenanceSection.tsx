@@ -3,46 +3,6 @@ import { Bell, Calendar, AlertCircle } from 'lucide-react';
 import { Toggle } from './Toggle';
 import { NotificationTimeSelector } from './NotificationTimeSelector';
 import type { NotificationPreferences } from '../types';
-import { notificationService } from '../services/notificationService';
-import { debug } from '../utils/debug';
-
-const NotificationConsentModal = ({ 
-  onConfirm, 
-  onCancel 
-}: { 
-  onConfirm: () => void; 
-  onCancel: () => void; 
-}) => {
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[60]">
-      <div className="bg-white dark:bg-stone-800 rounded-lg shadow-xl max-w-md w-full p-6">
-        <div className="flex items-center space-x-3 text-bonsai-green mb-4">
-          <Bell className="w-6 h-6" />
-          <h3 className="text-lg font-semibold">Enable Maintenance Reminders</h3>
-        </div>
-        <p className="text-stone-600 dark:text-stone-300 mb-4">
-          Get timely reminders for watering, pruning, and other essential bonsai care tasks. Never miss an important maintenance task again.
-        </p>
-        <div className="flex justify-end space-x-3">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="px-4 py-2 text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700 rounded-lg transition-colors"
-          >
-            Not Now
-          </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            className="px-4 py-2 bg-bonsai-green text-white rounded-lg hover:bg-bonsai-moss transition-colors"
-          >
-            Enable Reminders
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 const isIOS = () => {
   return [
@@ -82,172 +42,35 @@ export function MaintenanceSection({
   addToCalendar 
 }: MaintenanceSectionProps) {
   const [error, setError] = useState<string | null>(null);
-  const [initialized, setInitialized] = useState(false);
-  const [showConsentModal, setShowConsentModal] = useState(false);
-  const [pendingToggleType, setPendingToggleType] = useState<keyof NotificationPreferences | null>(null);
-  
   const hasEnabledNotifications = Object.values(notifications).some(value => value);
 
-  // Initialize notification service
-  React.useEffect(() => {
-    const initNotifications = async () => {
-      try {
-        if (!isIOS()) {
-          await notificationService.init();
-        }
-        setInitialized(true);
-        setError(null);
-      } catch (error) {
-        if (error instanceof Error && 
-            !error.message.includes('permission') && 
-            !error.message.includes('support')) {
-          debug.error('Failed to initialize notifications:', error);
-          setError('Failed to initialize notifications. Please try again.');
-        }
-        setInitialized(true);
-      }
-    };
-
-    initNotifications();
-  }, []);
-
-  const enableNotification = async (type: keyof NotificationPreferences) => {
+  const handleNotificationToggle = (type: keyof NotificationPreferences, enabled: boolean) => {
     try {
-      // Debug notification - Starting
-      await notificationService.showNotification('Debug: Starting enableNotification', {
-        body: `Starting to enable ${type} notifications`,
-        tag: 'debug-start'
-      });
-
-      await notificationService.init();
-      const permission = await Notification.requestPermission();
-      
-      if (permission === 'granted') {
-        onNotificationChange(type, true);
-        setError(null);
-
-        // Debug notification - Permission granted
-        await notificationService.showNotification('Debug: Permission Granted', {
-          body: `Permission granted for ${type} notifications`,
-          tag: 'debug-permission'
-        });
-
-        if (!hasEnabledNotifications) {
-          new Notification('Bonsai Care Notifications Enabled', {
-            body: 'You will now receive maintenance reminders for your bonsai trees.',
-            icon: '/bonsai-icon.png'
-          });
-        }
-      } else {
-        setError('Please allow notifications when prompted');
-        // Debug notification - Permission denied
-        await notificationService.showNotification('Debug: Permission Denied', {
-          body: `Permission denied for ${type} notifications`,
-          tag: 'debug-denied'
-        });
-      }
-    } catch (error) {
-      setError(`Failed to enable notifications: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      // Debug notification - Error
-      await notificationService.showNotification('Debug: Error', {
-        body: `Error enabling ${type} notifications: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        tag: 'debug-error'
-      });
-    }
-  };
-
-  const handleConsentConfirm = async () => {
-    if (pendingToggleType) {
-      await enableNotification(pendingToggleType);
-    }
-    setShowConsentModal(false);
-    setPendingToggleType(null);
-  };
-
-  const handleConsentCancel = () => {
-    setShowConsentModal(false);
-    setPendingToggleType(null);
-  };
-
-  const handleNotificationToggle = async (type: keyof NotificationPreferences, enabled: boolean) => {
-    try {
-      // Debug notification - Toggle started
-      await notificationService.showNotification('Debug: Toggle Started', {
-        body: `Starting toggle for ${type}: ${enabled ? 'ON' : 'OFF'}`,
-        tag: 'debug-toggle-start'
-      });
-
       if (isIOS()) {
         onNotificationChange(type, enabled);
         return;
       }
 
-      if (enabled) {
-        if (!('Notification' in window)) {
-          setError('Notifications are not supported');
-          return;
-        }
-
-        try {
-          await notificationService.init();
-          // Request permission if needed
-          const permissionGranted = await notificationService.requestPermission();
-          
-          if (permissionGranted) {
-            // Permission was granted, proceed with enabling notification
-            onNotificationChange(type, enabled);
-            setError(null);
-
-            // Debug notification - Toggle successful
-            await notificationService.showNotification('Debug: Toggle Success', {
-              body: `Successfully enabled ${type} notifications`,
-              tag: 'debug-toggle-success'
-            });
-          } else {
-            // Only show instructions if permission was actually denied
-            if (Notification.permission === 'denied') {
-              setError(
-                'To enable notifications:\n' +
-                '1. Long press the Bonsai Care app icon on your home screen\n' +
-                '2. Tap "App info" or ⓘ\n' +
-                '3. Tap "Notifications"\n' +
-                '4. Toggle notifications on'
-              );
-
-              // Debug notification - Permission denied
-              await notificationService.showNotification('Debug: Permission Denied', {
-                body: `Permission denied for ${type} notifications`,
-                tag: 'debug-toggle-denied'
-              });
-            }
-          }
-        } catch (error) {
-          setError(`Failed to enable notifications: ${error instanceof Error ? error.message : 'Unknown error'}`);
-          // Debug notification - Error
-          await notificationService.showNotification('Debug: Toggle Error', {
-            body: `Error enabling ${type} notifications: ${error instanceof Error ? error.message : 'Unknown error'}`,
-            tag: 'debug-toggle-error'
-          });
-        }
-      } else {
-        // Disabling notifications - just update state
-        onNotificationChange(type, enabled);
-        setError(null);
-
-        // Debug notification - Toggle off
-        await notificationService.showNotification('Debug: Toggle Off', {
-          body: `Successfully disabled ${type} notifications`,
-          tag: 'debug-toggle-off'
-        });
+      if (enabled && !('Notification' in window)) {
+        setError('Notifications are not supported in this browser');
+        return;
       }
+
+      if (enabled && Notification.permission === 'denied') {
+        setError(
+          'To enable notifications:\n' +
+          '1. Long press the Bonsai Care app icon on your home screen\n' +
+          '2. Tap "App info" or ⓘ\n' +
+          '3. Tap "Notifications"\n' +
+          '4. Toggle notifications on'
+        );
+        return;
+      }
+
+      onNotificationChange(type, enabled);
+      setError(null);
     } catch (error) {
-      debug.error('Error in handleNotificationToggle:', error);
       setError(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      // Debug notification - Unexpected error
-      await notificationService.showNotification('Debug: Unexpected Error', {
-        body: `Unexpected error in toggle: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        tag: 'debug-unexpected'
-      });
     }
   };
 
@@ -258,7 +81,6 @@ export function MaintenanceSection({
         setError(null);
       }
     } catch (error) {
-      debug.error('Error updating notification time:', error);
       setError('Failed to update notification time. Please try again.');
     }
   };
@@ -323,7 +145,6 @@ export function MaintenanceSection({
           </div>
         )}
 
-        {/* Show calendar option (auto-enabled for iOS) */}
         {(hasEnabledNotifications || isIOS()) && (
           <div className="border-t border-stone-200 dark:border-stone-700 pt-4">
             <Toggle
@@ -337,13 +158,6 @@ export function MaintenanceSection({
           </div>
         )}
       </div>
-
-      {showConsentModal && (
-        <NotificationConsentModal
-          onConfirm={handleConsentConfirm}
-          onCancel={handleConsentCancel}
-        />
-      )}
     </div>
   );
 }
