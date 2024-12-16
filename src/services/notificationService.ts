@@ -259,6 +259,7 @@ class NotificationService {
     }
   }
 
+  // test notification
   async testNotification(): Promise<void> {
     try {
       debug.info('Testing notification service...');
@@ -295,7 +296,33 @@ class NotificationService {
       throw error;
     }
   }
+  // end test notification
 
+  // test schedule notification
+  async testScheduledNotification(): Promise<void> {
+    try {
+      debug.info('Testing scheduled notification...');
+      
+      // Schedule a notification for 1 minute from now
+      await this.updateMaintenanceSchedule(
+        'test-tree',
+        'Test Tree',
+        'pruning',
+        true,
+        undefined,
+        { 
+          hours: new Date().getHours(),
+          minutes: new Date().getMinutes() + 1 
+        }
+      );
+      
+      debug.info('Test scheduled notification set successfully');
+    } catch (error) {
+      debug.error('Test scheduled notification failed:', error);
+      throw error;
+    }
+  }
+  // end test schedule notification
   private clearAllTimers(): void {
     Object.values(this.notificationTimers).forEach(timer => clearTimeout(timer));
     this.notificationTimers = {};

@@ -10,8 +10,6 @@ import React from 'react';
 import { Bell } from 'lucide-react';
 import { notificationService } from '../services/notificationService';
 import { debug } from '../utils/debug';
-
-
 export function TestNotificationButton() {
   const handleTestClick = async () => {
     try {
@@ -34,6 +32,33 @@ export function TestNotificationButton() {
 }
 //import { TestNotificationButton } from './TestNotificationButton';
 // end notification test button
+// scheduled notification test button
+import React from 'react';
+import { Clock } from 'lucide-react';
+import { notificationService } from '../services/notificationService';
+import { debug } from '../utils/debug';
+
+export function TestScheduledNotificationButton() {
+  const handleTestClick = async () => {
+    try {
+      debug.info('Testing scheduled notification...');
+      await notificationService.testScheduledNotification();
+    } catch (error) {
+      debug.error('Test scheduled notification failed:', error);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleTestClick}
+      className="flex items-center space-x-2 px-4 py-2 bg-bonsai-green text-white rounded-lg hover:bg-bonsai-moss transition-colors"
+    >
+      <Clock className="w-4 h-4" />
+      <span>Test Scheduled Notification (1min)</span>
+    </button>
+  );
+}
+// end scheduled notification test button
 
 export function LandingPage() {
   const navigate = useNavigate();
@@ -220,12 +245,13 @@ export function LandingPage() {
                   </button>
                   
 
-// test button In your component:
+
 <div>
-  <h2>Settings</h2>
   <TestNotificationButton />
 </div>
-// end test button 
+<div>
+  <TestScheduledNotificationButton />
+</div>
                   {trees.length === 0 && (
                     <button 
                       onClick={() => navigate('/dashboard', { state: { showAddForm: true } })}
