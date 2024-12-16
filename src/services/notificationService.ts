@@ -10,7 +10,16 @@ class NotificationService {
   private initializationError: Error | null = null;
 
   async init(): Promise<void> {
-    if (this.initialized) return;
+    debug.info('Initializing notification service', {
+      hasNotification: 'Notification' in window,
+      hasServiceWorker: 'serviceWorker' in navigator,
+      permission: Notification.permission
+    });
+  
+    if (this.initialized) {
+      debug.info('Notification service already initialized');
+      return;
+    }
     
     if (!('Notification' in window)) {
       this.initializationError = new Error('This browser does not support notifications');
@@ -75,6 +84,35 @@ class NotificationService {
     }
   }
 
+  async testNotification(): Promise<void> {
+    try {
+      await this.ensureInitialized();
+      
+      if (Notification.permission !== 'granted') {
+        throw new Error('Notification permission not granted');
+      }
+  
+      if (this.serviceWorkerRegistration) {
+        await this.serviceWorkerRegistration.showNotification('Test Notification', {
+          body: 'If you see this, notifications are working!',
+          icon: '/bonsai-icon.png',
+          tag: 'test',
+          requireInteraction: true
+        });
+      } else {
+        new Notification('Test Notification', {
+          body: 'If you see this, notifications are working!',
+          icon: '/bonsai-icon.png'
+        });
+      }
+      
+      debug.info('Test notification sent successfully');
+    } catch (error) {
+      debug.error('Test notification failed:', error);
+      throw error;
+    }
+  }
+  
   async updateMaintenanceSchedule(
     treeId: string,
     treeName: string,
@@ -83,20 +121,17 @@ class NotificationService {
     lastPerformed?: string,
     notificationTime?: { hours: number; minutes: number }
   ): Promise<void> {
-    try {
-      // Log entry point with full context
-      debug.info('updateMaintenanceSchedule called', {
-        treeId,
-        type,
-        enabled,
-        lastPerformed,
-        notificationTime,
-        currentState: {
-          hasExistingTimer: !!this.notificationTimers[`${treeId}-${type}`],
-          initialized: this.initialized,
-          permission: Notification.permission
-        }
-      });
+    debug.info('updateMaintenanceSchedule called', {
+      treeId,
+      treeName,
+      type,
+      enabled,
+      lastPerformed,
+      notificationTime,
+      permission: Notification.permission,
+      initialized: this.initialized,
+      serviceWorker: !!this.serviceWorkerRegistration
+    });
 
       // Capture stack trace for debugging
       const triggerStack = new Error().stack;

@@ -5,6 +5,34 @@ import { useAuthStore } from '../store/authStore';
 import { useBonsaiStore } from '../store/bonsaiStore';
 import { FEATURES } from '../config/features';
 
+// notification test button
+import React from 'react';
+import { Bell } from 'lucide-react';
+import { notificationService } from '../services/notificationService';
+import { debug } from '../utils/debug';
+
+export function TestNotificationButton() {
+  const handleTestClick = async () => {
+    try {
+      debug.info('Testing notification...');
+      await notificationService.testNotification();
+    } catch (error) {
+      debug.error('Test notification failed:', error);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleTestClick}
+      className="flex items-center space-x-2 px-4 py-2 bg-bonsai-green text-white rounded-lg hover:bg-bonsai-moss transition-colors"
+    >
+      <Bell className="w-4 h-4" />
+      <span>Test Notifications</span>
+    </button>
+  );
+}
+// end notification test button
+
 export function LandingPage() {
   const navigate = useNavigate();
   const { user, signInWithGoogle, signInWithEmail, createAccount, loading, error, checkEmailExists } = useAuthStore();

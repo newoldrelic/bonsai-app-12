@@ -74,9 +74,37 @@ export function EditTreeForm({ tree, onClose, onSubmit, onDelete }: EditTreeForm
     setImageError(error);
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (onDelete) {
-      onDelete(tree.id);
+      try {
+        // Clean up all notifications for this tree
+        const enabledTypes = Object.entries(tree.notifications)
+          .filter(([_, enabled]) => enabled)
+          .map(([type]) => type as MaintenanceType);
+          
+        debug.info('Cleaning up notifications for deleted tree:', {
+          treeId: tree.id,
+          enabledTypes
+        });
+  
+        for (const type of enabledTypes) {
+          try {
+            await notificationService.updateMaintenanceSchedule(
+              tree.id,
+              tree.name,
+              type,
+              false  // disable all notifications
+            );
+          } catch (error) {
+            debug.error('Failed to cleanup notification:', { type, error });
+          }
+        }
+  
+        // Then delete the tree
+        onDelete(tree.id);
+      } catch (error) {
+        debug.error('Error deleting tree:', error);
+      }
     }
   };
 
