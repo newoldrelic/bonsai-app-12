@@ -84,6 +84,20 @@ class NotificationService {
     notificationTime?: { hours: number; minutes: number }
   ): Promise<void> {
     try {
+      // Log entry point with full context
+      debug.info('updateMaintenanceSchedule called', {
+        treeId,
+        type,
+        enabled,
+        lastPerformed,
+        notificationTime,
+        currentState: {
+          hasExistingTimer: !!this.notificationTimers[`${treeId}-${type}`],
+          initialized: this.initialized,
+          permission: Notification.permission
+        }
+      });
+
       // Capture stack trace for debugging
       const triggerStack = new Error().stack;
       const triggerTime = new Date().toISOString();
@@ -94,6 +108,7 @@ class NotificationService {
 
       // Clear existing timer
       if (this.notificationTimers[key]) {
+        debug.info('Clearing existing timer', { key });
         clearTimeout(this.notificationTimers[key]);
         delete this.notificationTimers[key];
       }
@@ -110,11 +125,18 @@ class NotificationService {
       const schedule = MAINTENANCE_SCHEDULES[type];
       const now = new Date();
       
+      debug.info('Starting schedule calculation', {
+        now: now.toISOString(),
+        schedule,
+        lastPerformed
+      });
+
       // Set up initial date calculations
       let baseDate;
       const baseDateSource = lastPerformed ? 'lastPerformed' : 'default';
       if (lastPerformed) {
         baseDate = new Date(lastPerformed);
+        debug.info('Using last performed date as base', { lastPerformed });
       } else {
         // If never performed, start from today at specified time
         baseDate = new Date();
@@ -125,6 +147,10 @@ class NotificationService {
         
         // Move back one interval to ensure first notification isn't immediate
         baseDate.setTime(baseDate.getTime() - schedule.interval);
+        debug.info('Created default base date', { 
+          baseDate: baseDate.toISOString(),
+          adjustedBy: -schedule.interval
+        });
       }
 
       // Calculate next notification time
@@ -139,23 +165,33 @@ class NotificationService {
       while (nextDate <= now) {
         nextDate.setTime(nextDate.getTime() + schedule.interval);
         intervalsAdded++;
+        debug.info('Added interval to reach future date', {
+          attempt: intervalsAdded,
+          newNextDate: nextDate.toISOString()
+        });
       }
 
       const timeUntilNotification = nextDate.getTime() - now.getTime();
 
-      // Add this debug info at the point of calculation
-      debug.info(`Timeout calculation:`, {
+      // Log detailed timing calculations
+      debug.info('Timeout calculation', {
         timeUntilMs: timeUntilNotification,
-        timeUntilHours: timeUntilNotification / (1000 * 60 * 60)
+        timeUntilHours: timeUntilNotification / (1000 * 60 * 60),
+        baseDate: baseDate.toISOString(),
+        nextDate: nextDate.toISOString(),
+        intervalsAdded
       });
 
       // Safeguard against immediate or past notifications
       if (timeUntilNotification <= 1000) { // Less than 1 second
-        debug.info('Adjusting schedule to prevent immediate notification');
+        debug.info('Adjusting schedule to prevent immediate notification', {
+          originalTime: timeUntilNotification,
+          adding: schedule.interval
+        });
         nextDate = new Date(nextDate.getTime() + schedule.interval);
       }
 
-      debug.info('Scheduling notification:', {
+      debug.info('Scheduling notification', {
         type,
         treeName,
         lastPerformed: lastPerformed || 'never',
@@ -170,6 +206,24 @@ class NotificationService {
       // Schedule notification
       this.notificationTimers[key] = setTimeout(async () => {
         try {
+          const actualDelay = new Date().getTime() - now.getTime();
+          debug.info('Notification firing', {
+            expectedDelay: timeUntilNotification,
+            actualDelay,
+            difference: actualDelay - timeUntilNotification,
+            scheduled: nextDate.toISOString(),
+            now: new Date().toISOString()
+          });
+
+          if (actualDelay < timeUntilNotification - 1000) {  // If fired more than 1 second early
+            debug.warn('Notification fired earlier than scheduled!', {
+              expectedDelay: timeUntilNotification,
+              actualDelay,
+              difference: timeUntilNotification - actualDelay
+            });
+            return; // Skip showing the notification
+          }
+
           if (this.serviceWorkerRegistration) {
             const debugMessage = `${schedule.message}\n\n` + 
               //`Debug Info:\n` +
@@ -178,16 +232,18 @@ class NotificationService {
               //`- Base Date Source: ${baseDateSource}\n` +
               //`- Intervals Added: ${intervalsAdded}\n` +
               //`Timing Info:\n` +
-              //`- Last Performed: ${lastPerformed ? new Date(lastPerformed).toLocaleString() : 'never'}\n` +
-              //`- Base Date: ${baseDate.toLocaleString()}\n` +
+              `- Last Performed: ${lastPerformed ? new Date(lastPerformed).toLocaleString() : 'never'}\n` +
+              `- Base Date: ${baseDate.toLocaleString()}\n` +
               `- Scheduled For: ${nextDate.toLocaleString()}\n` +
               `- Actual Time: ${new Date().toLocaleString()}\n` +
-              `- Interval: ${schedule.interval / (24 * 60 * 60 * 1000)} days\n` +
+              //`- Interval: ${schedule.interval / (24 * 60 * 60 * 1000)} days\n` +
               `- Time Until Next: ${Math.floor(timeUntilNotification / (1000 * 60 * 60))}h ${Math.floor((timeUntilNotification % (1000 * 60 * 60)) / (1000 * 60))}m\n` +
+              `- Expected Delay: ${timeUntilNotification}ms\n` +
+              `- Actual Delay: ${actualDelay}ms\n` +
               //`Settings:\n` +
-              //`- Notification Time: ${notificationTime?.hours ?? 9}:${(notificationTime?.minutes ?? 0).toString().padStart(2, '0')}\n` +
+              `- Notification Time: ${notificationTime?.hours ?? 9}:${(notificationTime?.minutes ?? 0).toString().padStart(2, '0')}\n` +
               //`- Tree ID: ${treeId}\n` +
-              //`- Maintenance Type: ${type}\n` +
+              //`- Maintenance Type: ${type}\n\n` +
               `Trigger Stack:\n${triggerStack}`;
       
             await this.serviceWorkerRegistration.showNotification(`Bonsai Maintenance: ${treeName}`, {
