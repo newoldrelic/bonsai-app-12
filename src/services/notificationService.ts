@@ -15,7 +15,7 @@ class NotificationService {
       hasServiceWorker: 'serviceWorker' in navigator,
       permission: Notification.permission
     });
-  
+
     if (this.initialized) {
       debug.info('Notification service already initialized');
       return;
@@ -66,17 +66,22 @@ class NotificationService {
 
   async requestPermission(): Promise<boolean> {
     try {
+      debug.info('Requesting notification permission');
+      
       // Check current permission state
       if (Notification.permission === 'granted') {
+        debug.info('Notification permission already granted');
         return true;
       }
       
       // Request permission only if not already denied
       if (Notification.permission !== 'denied') {
         const permission = await Notification.requestPermission();
+        debug.info('Notification permission request result:', permission);
         return permission === 'granted';
       }
       
+      debug.info('Notification permission previously denied');
       return false;
     } catch (error) {
       debug.error('Failed to request notification permission:', error);
@@ -84,35 +89,6 @@ class NotificationService {
     }
   }
 
-  async testNotification(): Promise<void> {
-    try {
-      await this.ensureInitialized();
-      
-      if (Notification.permission !== 'granted') {
-        throw new Error('Notification permission not granted');
-      }
-  
-      if (this.serviceWorkerRegistration) {
-        await this.serviceWorkerRegistration.showNotification('Test Notification', {
-          body: 'If you see this, notifications are working!',
-          icon: '/bonsai-icon.png',
-          tag: 'test',
-          requireInteraction: true
-        });
-      } else {
-        new Notification('Test Notification', {
-          body: 'If you see this, notifications are working!',
-          icon: '/bonsai-icon.png'
-        });
-      }
-      
-      debug.info('Test notification sent successfully');
-    } catch (error) {
-      debug.error('Test notification failed:', error);
-      throw error;
-    }
-  }
-  
   async updateMaintenanceSchedule(
     treeId: string,
     treeName: string,
@@ -121,21 +97,18 @@ class NotificationService {
     lastPerformed?: string,
     notificationTime?: { hours: number; minutes: number }
   ): Promise<void> {
-    debug.info('updateMaintenanceSchedule called', {
-      treeId,
-      treeName,
-      type,
-      enabled,
-      lastPerformed,
-      notificationTime,
-      permission: Notification.permission,
-      initialized: this.initialized,
-      serviceWorker: !!this.serviceWorkerRegistration
-    });
-
-      // Capture stack trace for debugging
-      const triggerStack = new Error().stack;
-      const triggerTime = new Date().toISOString();
+    try {
+      debug.info('updateMaintenanceSchedule called', {
+        treeId,
+        treeName,
+        type,
+        enabled,
+        lastPerformed,
+        notificationTime,
+        permission: Notification.permission,
+        initialized: this.initialized,
+        serviceWorker: !!this.serviceWorkerRegistration
+      });
 
       await this.ensureInitialized();
       
@@ -168,7 +141,6 @@ class NotificationService {
 
       // Set up initial date calculations
       let baseDate;
-      const baseDateSource = lastPerformed ? 'lastPerformed' : 'default';
       if (lastPerformed) {
         baseDate = new Date(lastPerformed);
         debug.info('Using last performed date as base', { lastPerformed });
@@ -208,7 +180,6 @@ class NotificationService {
 
       const timeUntilNotification = nextDate.getTime() - now.getTime();
 
-      // Log detailed timing calculations
       debug.info('Timeout calculation', {
         timeUntilMs: timeUntilNotification,
         timeUntilHours: timeUntilNotification / (1000 * 60 * 60),
@@ -225,18 +196,6 @@ class NotificationService {
         });
         nextDate = new Date(nextDate.getTime() + schedule.interval);
       }
-
-      debug.info('Scheduling notification', {
-        type,
-        treeName,
-        lastPerformed: lastPerformed || 'never',
-        baseDate: baseDate.toISOString(),
-        nextDate: nextDate.toISOString(),
-        timeUntil: {
-          hours: Math.floor(timeUntilNotification / (1000 * 60 * 60)),
-          minutes: Math.floor((timeUntilNotification % (1000 * 60 * 60)) / (1000 * 60))
-        }
-      });
 
       // Schedule notification
       this.notificationTimers[key] = setTimeout(async () => {
@@ -260,29 +219,8 @@ class NotificationService {
           }
 
           if (this.serviceWorkerRegistration) {
-            const debugMessage = `${schedule.message}\n\n` + 
-              //`Debug Info:\n` +
-              //`Trigger Details:\n` +
-              //`- Time: ${triggerTime}\n` +
-              //`- Base Date Source: ${baseDateSource}\n` +
-              //`- Intervals Added: ${intervalsAdded}\n` +
-              //`Timing Info:\n` +
-              `- Last Performed: ${lastPerformed ? new Date(lastPerformed).toLocaleString() : 'never'}\n` +
-              `- Base Date: ${baseDate.toLocaleString()}\n` +
-              `- Scheduled For: ${nextDate.toLocaleString()}\n` +
-              `- Actual Time: ${new Date().toLocaleString()}\n` +
-              //`- Interval: ${schedule.interval / (24 * 60 * 60 * 1000)} days\n` +
-              `- Time Until Next: ${Math.floor(timeUntilNotification / (1000 * 60 * 60))}h ${Math.floor((timeUntilNotification % (1000 * 60 * 60)) / (1000 * 60))}m\n` +
-              `- Expected Delay: ${timeUntilNotification}ms\n` +
-              `- Actual Delay: ${actualDelay}ms\n` +
-              //`Settings:\n` +
-              `- Notification Time: ${notificationTime?.hours ?? 9}:${(notificationTime?.minutes ?? 0).toString().padStart(2, '0')}\n` +
-              //`- Tree ID: ${treeId}\n` +
-              //`- Maintenance Type: ${type}\n\n` +
-              `Trigger Stack:\n${triggerStack}`;
-      
             await this.serviceWorkerRegistration.showNotification(`Bonsai Maintenance: ${treeName}`, {
-              body: debugMessage,
+              body: schedule.message,
               icon: '/bonsai-icon.png',
               tag: key,
               requireInteraction: true,
@@ -293,9 +231,8 @@ class NotificationService {
               ]
             });
           } else {
-            // Also update the fallback notification
             new Notification(`Bonsai Maintenance: ${treeName}`, {
-              body: debugMessage,
+              body: schedule.message,
               icon: '/bonsai-icon.png',
               tag: key
             });
@@ -318,6 +255,43 @@ class NotificationService {
       debug.info(`Scheduled ${type} notification for ${treeName} at ${nextDate.toISOString()}`);
     } catch (error) {
       debug.error('Error updating maintenance schedule:', error);
+      throw error;
+    }
+  }
+
+  async testNotification(): Promise<void> {
+    try {
+      debug.info('Testing notification service...');
+      
+      await this.ensureInitialized();
+      
+      if (Notification.permission !== 'granted') {
+        const permission = await this.requestPermission();
+        if (!permission) {
+          throw new Error('Notification permission not granted');
+        }
+      }
+
+      debug.info('Showing test notification');
+
+      if (this.serviceWorkerRegistration) {
+        await this.serviceWorkerRegistration.showNotification('Bonsai Care Test Notification', {
+          body: 'If you see this, notifications are working correctly!',
+          icon: '/bonsai-icon.png',
+          tag: 'test',
+          requireInteraction: true,
+          data: { test: true }
+        });
+      } else {
+        new Notification('Bonsai Care Test Notification', {
+          body: 'If you see this, notifications are working correctly!',
+          icon: '/bonsai-icon.png'
+        });
+      }
+      
+      debug.info('Test notification sent successfully');
+    } catch (error) {
+      debug.error('Test notification failed:', error);
       throw error;
     }
   }
