@@ -184,10 +184,10 @@ class NotificationService {
               `- Actual Time: ${new Date().toLocaleString()}\n` +
               `- Interval: ${schedule.interval / (24 * 60 * 60 * 1000)} days\n` +
               `- Time Until Next: ${Math.floor(timeUntilNotification / (1000 * 60 * 60))}h ${Math.floor((timeUntilNotification % (1000 * 60 * 60)) / (1000 * 60))}m\n` +
-              `Settings:\n` +
+              //`Settings:\n` +
               //`- Notification Time: ${notificationTime?.hours ?? 9}:${(notificationTime?.minutes ?? 0).toString().padStart(2, '0')}\n` +
-              `- Tree ID: ${treeId}\n` +
-              `- Maintenance Type: ${type}\n\n` +
+              //`- Tree ID: ${treeId}\n` +
+              //`- Maintenance Type: ${type}\n` +
               `Trigger Stack:\n${triggerStack}`;
       
             await this.serviceWorkerRegistration.showNotification(`Bonsai Maintenance: ${treeName}`, {
