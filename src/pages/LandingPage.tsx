@@ -68,31 +68,29 @@ export function BasicTestButton() {
   const handleClick = async () => {
     console.log('Button clicked');
     
-    // Basic browser notification check
-    console.log('Notification support:', 'Notification' in window);
-    console.log('Current permission:', Notification.permission);
-    
     try {
-      const notification = new Notification('Test Basic Notification', {
-        body: 'This is a test notification',
-        icon: '/bonsai-icon.png',
-        tag: 'test-basic'
-      });
-
-      notification.onclick = () => {
-        console.log('Notification clicked');
-      };
-
-      notification.onshow = () => {
-        console.log('Notification shown');
-      };
-
-      notification.onerror = (error) => {
-        console.error('Notification error:', error);
-      };
-
+      // Try service worker notification
+      const registration = await navigator.serviceWorker.getRegistration('/notification-worker.js');
+      console.log('Service worker registration:', registration ? 'found' : 'not found');
+      
+      if (registration) {
+        await registration.showNotification('Test Service Worker Notification', {
+          body: 'This is a test notification via service worker',
+          icon: '/bonsai-icon.png',
+          tag: 'test-sw',
+          requireInteraction: true
+        });
+        console.log('Service worker notification requested');
+      } else {
+        console.log('No service worker found, trying direct notification');
+        new Notification('Test Direct Notification', {
+          body: 'This is a test notification directly',
+          icon: '/bonsai-icon.png',
+          tag: 'test-direct'
+        });
+      }
     } catch (error) {
-      console.error('Notification creation error:', error);
+      console.error('Notification error:', error);
     }
   };
 
@@ -101,7 +99,7 @@ export function BasicTestButton() {
       onClick={handleClick}
       className="px-4 py-2 bg-red-500 text-white rounded-lg"
     >
-      Basic Notification Test
+      Test SW Notification
     </button>
   );
 }
