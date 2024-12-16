@@ -158,8 +158,10 @@ class NotificationService {
       this.notificationTimers[key] = setTimeout(async () => {
         try {
           if (this.serviceWorkerRegistration) {
+            const debugMessage = `${schedule.message}\n\nDebug Info:\nScheduled: ${nextDate.toLocaleString()}\nActual: ${new Date().toLocaleString()}\nInterval: ${schedule.interval / (24 * 60 * 60 * 1000)} days`;
+      
             await this.serviceWorkerRegistration.showNotification(`Bonsai Maintenance: ${treeName}`, {
-              body: schedule.message,
+              body: debugMessage,  // Modified to use our debug message
               icon: '/bonsai-icon.png',
               tag: key,
               requireInteraction: true,
@@ -170,8 +172,9 @@ class NotificationService {
               ]
             });
           } else {
+            // Also update the fallback notification
             new Notification(`Bonsai Maintenance: ${treeName}`, {
-              body: schedule.message,
+              body: debugMessage,
               icon: '/bonsai-icon.png',
               tag: key
             });
