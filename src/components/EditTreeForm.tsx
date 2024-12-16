@@ -7,11 +7,12 @@ import { MaintenanceSection } from './MaintenanceSection';
 import { generateMaintenanceEvents, downloadCalendarFile } from '../utils/calendar';
 import { notificationService } from '../services/notificationService';
 import { debug } from '../utils/debug';
+import { areNotificationsEnabled } from '../utils/notifications';
 
 interface EditTreeFormProps {
   tree: BonsaiTree;
   onClose: () => void;
-  onSubmit: (id: string, updates: Partial<BonsaiTree>) => void;
+  onSubmit: (id: string, updates: Partial<BonsaiTree>) => Promise<void>;
   onDelete?: (id: string) => void;
 }
 
@@ -23,43 +24,79 @@ export function EditTreeForm({ tree, onClose, onSubmit, onDelete }: EditTreeForm
   const [addToCalendar, setAddToCalendar] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting) return;
+
+    setSubmitting(true);
     
-    if (addToCalendar) {
-      try {
-        const selectedTypes = (Object.entries(formData.notifications)
-          .filter(([_, enabled]) => enabled)
-          .map(([type]) => type)) as MaintenanceType[];
-
-        const calendarContent = await generateMaintenanceEvents(formData, selectedTypes);
-        downloadCalendarFile(calendarContent, `${formData.name}-maintenance.ics`);
-      } catch (error) {
-        debug.error('Failed to generate calendar events:', error);
-      }
-    }
-
-    // Update notification schedules for each maintenance type
     try {
+      debug.info('Updating tree', { 
+        treeId: tree.id,
+        updates: formData
+      });
+
+      // Find notification changes
       const notificationChanges = Object.entries(formData.notifications).filter(
         ([type, enabled]) => enabled !== tree.notifications[type as keyof typeof tree.notifications]
       );
 
-      for (const [type, enabled] of notificationChanges) {
-        await notificationService.updateMaintenanceSchedule(
-          tree.id,
-          formData.name,
-          type as MaintenanceType,
-          enabled,
-          formData.lastMaintenance?.[type]
-        );
-      }
-    } catch (error) {
-      debug.error('Failed to update notification schedules:', error);
-    }
+      debug.info('Processing notification changes', { 
+        treeId: tree.id,
+        changes: notificationChanges 
+      });
 
-    onSubmit(tree.id, formData);
+      // Update tree data first
+      await onSubmit(tree.id, formData);
+
+      // Then handle notification changes if notifications are enabled
+      if (notificationChanges.length > 0 && areNotificationsEnabled()) {
+        for (const [type, enabled] of notificationChanges) {
+          try {
+            await notificationService.updateMaintenanceSchedule(
+              tree.id,
+              formData.name,
+              type as MaintenanceType,
+              enabled,
+              formData.lastMaintenance?.[type],
+              formData.notificationSettings
+            );
+            debug.info(`Updated notification schedule for ${type}`, {
+              treeId: tree.id,
+              enabled
+            });
+          } catch (error) {
+            debug.error('Failed to update notification schedule:', {
+              type,
+              error,
+              treeId: tree.id
+            });
+          }
+        }
+      }
+
+      // Handle calendar export if requested
+      if (addToCalendar) {
+        try {
+          const selectedTypes = (Object.entries(formData.notifications)
+            .filter(([_, enabled]) => enabled)
+            .map(([type]) => type)) as MaintenanceType[];
+
+          const calendarContent = await generateMaintenanceEvents(formData, selectedTypes);
+          downloadCalendarFile(calendarContent, `${formData.name}-maintenance.ics`);
+        } catch (error) {
+          debug.error('Failed to generate calendar events:', error);
+        }
+      }
+
+      onClose();
+    } catch (error) {
+      debug.error('Error updating tree:', error);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleImageCapture = (dataUrl: string) => {
@@ -77,6 +114,8 @@ export function EditTreeForm({ tree, onClose, onSubmit, onDelete }: EditTreeForm
   const handleDelete = async () => {
     if (onDelete) {
       try {
+        debug.info('Starting tree deletion process', { treeId: tree.id });
+
         // Clean up all notifications for this tree
         const enabledTypes = Object.entries(tree.notifications)
           .filter(([_, enabled]) => enabled)
@@ -86,77 +125,50 @@ export function EditTreeForm({ tree, onClose, onSubmit, onDelete }: EditTreeForm
           treeId: tree.id,
           enabledTypes
         });
-  
+
         for (const type of enabledTypes) {
           try {
             await notificationService.updateMaintenanceSchedule(
               tree.id,
               tree.name,
               type,
-              false  // disable all notifications
+              false,  // disable all notifications
+              undefined,
+              formData.notificationSettings
             );
+            debug.info(`Disabled notifications for ${type}`, { treeId: tree.id });
           } catch (error) {
             debug.error('Failed to cleanup notification:', { type, error });
           }
         }
-  
+
         // Then delete the tree
-        onDelete(tree.id);
+        await onDelete(tree.id);
+        debug.info('Tree deleted successfully', { treeId: tree.id });
+        onClose();
       } catch (error) {
         debug.error('Error deleting tree:', error);
       }
     }
   };
 
-  const handleNotificationChange = async (type: keyof typeof formData.notifications, enabled: boolean) => {
-    try {
-      debug.info('EditTreeForm: Starting notification change:', { 
-        type, 
-        enabled,
-        treeId: tree.id,
-        currentNotifications: formData.notifications
-      });
+  const handleNotificationChange = (type: keyof typeof formData.notifications, enabled: boolean) => {
+    debug.info('EditTreeForm: Notification toggle requested', { 
+      treeId: tree.id,
+      type, 
+      enabled,
+      currentState: formData.notifications[type]
+    });
 
-      setFormData(prev => ({
-        ...prev,
-        notifications: {
-          ...prev.notifications,
-          [type]: enabled
-        }
-      }));
-      debug.info('EditTreeForm: Local state updated');
-
-      debug.info('EditTreeForm: Calling updateMaintenanceSchedule...');
-      await notificationService.updateMaintenanceSchedule(
-        tree.id,
-        formData.name,
-        type as MaintenanceType,
-        enabled,
-        formData.lastMaintenance?.[type],
-        formData.notificationSettings
-      );
-      debug.info('EditTreeForm: updateMaintenanceSchedule completed successfully');
-
-    } catch (error) {
-      debug.error('EditTreeForm: Failed to update notification:', {
-        error,
-        errorMessage: error instanceof Error ? error.message : String(error),
-        type,
-        enabled,
-        treeId: tree.id,
-        currentNotifications: formData.notifications
-      });
-      
-      // Revert the change if update fails
-      setFormData(prev => ({
-        ...prev,
-        notifications: {
-          ...prev.notifications,
-          [type]: !enabled
-        }
-      }));
-    }
-};
+    // Just update form state - actual scheduling happens on save
+    setFormData(prev => ({
+      ...prev,
+      notifications: {
+        ...prev.notifications,
+        [type]: enabled
+      }
+    }));
+  };
 
   const handleNotificationTimeChange = (hours: number, minutes: number) => {
     setFormData(prev => ({
@@ -302,21 +314,22 @@ export function EditTreeForm({ tree, onClose, onSubmit, onDelete }: EditTreeForm
             </div>
           </div>
 
-      <MaintenanceSection
-        notifications={formData.notifications}
-        notificationTime={formData.notificationSettings}
-        onNotificationChange={handleNotificationChange}
-        onNotificationTimeChange={handleNotificationTimeChange}
-        addToCalendar={addToCalendar}
-        onAddToCalendarChange={setAddToCalendar}
-      />
+          <MaintenanceSection
+            notifications={formData.notifications}
+            notificationTime={formData.notificationSettings}
+            onNotificationChange={handleNotificationChange}
+            onNotificationTimeChange={handleNotificationTimeChange}
+            addToCalendar={addToCalendar}
+            onAddToCalendarChange={setAddToCalendar}
+          />
 
           <div className="pt-4 border-t border-stone-200 dark:border-stone-700">
             <button
               type="submit"
-              className="w-full bg-bonsai-green text-white px-4 py-2 rounded-lg hover:bg-bonsai-moss transition-colors"
+              disabled={submitting}
+              className="w-full bg-bonsai-green text-white px-4 py-2 rounded-lg hover:bg-bonsai-moss transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Save Changes
+              {submitting ? 'Saving Changes...' : 'Save Changes'}
             </button>
           </div>
         </form>

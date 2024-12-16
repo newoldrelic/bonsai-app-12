@@ -13,7 +13,7 @@ import { debug } from '../utils/debug';
 
 interface AddTreeFormProps {
   onClose: () => void;
-  onSubmit: (data: any, isSubscribed: boolean) => Promise<any>;  // Modified to ensure it returns a Promise
+  onSubmit: (data: any, isSubscribed: boolean) => Promise<any>;
 }
 
 export function AddTreeForm({ onClose, onSubmit }: AddTreeFormProps) {
@@ -57,40 +57,64 @@ export function AddTreeForm({ onClose, onSubmit }: AddTreeFormProps) {
         enabledNotifications: Object.entries(formData.notifications).filter(([_, enabled]) => enabled)
       });
 
-      // Submit the form data and get the created tree back
-      const createdTree = await onSubmit(formData, isSubscribed);
-      
-      debug.info('Tree created successfully', { createdTree });
-
-      // Now setup notifications with the real tree ID
-      const enabledNotifications = Object.entries(formData.notifications)
-        .filter(([_, enabled]) => enabled);
-        
-      debug.info('Setting up notifications for new tree:', {
-        treeId: createdTree.id,
-        enabledNotifications
-      });
-
-      for (const [type, enabled] of enabledNotifications) {
-        try {
-          await notificationService.updateMaintenanceSchedule(
-            createdTree.id,
-            createdTree.name,
-            type as MaintenanceType,
-            enabled,
-            undefined,
-            formData.notificationSettings
-          );
-          debug.info(`Notification scheduled for ${type}`, {
-            treeId: createdTree.id,
-            type,
-            settings: formData.notificationSettings
-          });
-        } catch (error) {
-          debug.error('Failed to setup notification:', { type, error });
+      // Check notification permission if any notifications are enabled
+      const hasEnabledNotifications = Object.values(formData.notifications).some(value => value);
+      if (hasEnabledNotifications) {
+        if (!areNotificationsEnabled()) {
+          const granted = await requestNotificationPermission();
+          if (!granted) {
+            const confirmed = window.confirm(
+              'Notifications are required for maintenance reminders. Would you like to enable them in your browser settings?'
+            );
+            if (!confirmed) {
+              setFormData(prev => ({
+                ...prev,
+                notifications: Object.keys(prev.notifications).reduce((acc, key) => ({
+                  ...acc,
+                  [key]: false
+                }), {} as typeof prev.notifications)
+              }));
+            }
+          }
         }
       }
 
+      // Submit the form data and get the created tree back
+      const createdTree = await onSubmit(formData, isSubscribed);
+      debug.info('Tree created successfully', { createdTree });
+
+      // Setup notifications for the newly created tree
+      if (hasEnabledNotifications && areNotificationsEnabled()) {
+        const enabledNotifications = Object.entries(formData.notifications)
+          .filter(([_, enabled]) => enabled);
+          
+        debug.info('Setting up notifications for new tree:', {
+          treeId: createdTree.id,
+          enabledNotifications
+        });
+
+        for (const [type, enabled] of enabledNotifications) {
+          try {
+            await notificationService.updateMaintenanceSchedule(
+              createdTree.id,
+              createdTree.name,
+              type as MaintenanceType,
+              enabled,
+              undefined,
+              formData.notificationSettings
+            );
+            debug.info(`Notification scheduled for ${type}`, {
+              treeId: createdTree.id,
+              type,
+              settings: formData.notificationSettings
+            });
+          } catch (error) {
+            debug.error('Failed to setup notification:', { type, error });
+          }
+        }
+      }
+
+      // Handle calendar export if requested
       if (addToCalendar) {
         try {
           const selectedTypes = (Object.entries(formData.notifications)
@@ -98,7 +122,7 @@ export function AddTreeForm({ onClose, onSubmit }: AddTreeFormProps) {
             .map(([type]) => type)) as MaintenanceType[];
 
           const calendarContent = await generateMaintenanceEvents(
-            { ...formData, id: createdTree.id, maintenanceLogs: [], userEmail: '' },
+            { ...createdTree, maintenanceLogs: [], userEmail: '' },
             selectedTypes
           );
           downloadCalendarFile(calendarContent, `${formData.name}-maintenance.ics`);
@@ -110,6 +134,7 @@ export function AddTreeForm({ onClose, onSubmit }: AddTreeFormProps) {
       debug.error('Error submitting form:', error);
     } finally {
       setSubmitting(false);
+      onClose();
     }
   };
 
@@ -132,32 +157,15 @@ export function AddTreeForm({ onClose, onSubmit }: AddTreeFormProps) {
     }));
   };
 
-  const handleNotificationChange = async (type: keyof typeof formData.notifications, enabled: boolean) => {
-    try {
-      debug.info('AddTreeForm: Notification toggle requested', { type, enabled });
-      
-      // Just update the form state - we'll setup notifications after tree creation
-      setFormData(prev => ({
-        ...prev,
-        notifications: {
-          ...prev.notifications,
-          [type]: enabled
-        }
-      }));
-      
-      debug.info('AddTreeForm: Notification state updated:', { type, enabled });
-    } catch (error) {
-      debug.error('AddTreeForm: Error updating notification state:', error);
-      
-      // Revert on error
-      setFormData(prev => ({
-        ...prev,
-        notifications: {
-          ...prev.notifications,
-          [type]: !enabled
-        }
-      }));
-    }
+  const handleNotificationChange = (type: keyof typeof formData.notifications, enabled: boolean) => {
+    debug.info('AddTreeForm: Notification toggle requested', { type, enabled });
+    setFormData(prev => ({
+      ...prev,
+      notifications: {
+        ...prev.notifications,
+        [type]: enabled
+      }
+    }));
   };
 
   const handleNotificationTimeChange = (hours: number, minutes: number) => {
