@@ -11,6 +11,7 @@ import { Bell } from 'lucide-react';
 import { notificationService } from '../services/notificationService';
 import { debug } from '../utils/debug';
 
+
 export function TestNotificationButton() {
   const handleTestClick = async () => {
     try {
@@ -31,6 +32,7 @@ export function TestNotificationButton() {
     </button>
   );
 }
+import { TestNotificationButton } from './TestNotificationButton';
 // end notification test button
 
 export function LandingPage() {
@@ -216,7 +218,14 @@ export function LandingPage() {
                     </span>
                     <div className="absolute inset-0 bg-gradient-to-r from-emerald-600 to-emerald-500 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left" />
                   </button>
+                  
 
+// test button In your component:
+<div>
+  <h2>Settings</h2>
+  <TestNotificationButton />
+</div>
+// end test button 
                   {trees.length === 0 && (
                     <button 
                       onClick={() => navigate('/dashboard', { state: { showAddForm: true } })}
