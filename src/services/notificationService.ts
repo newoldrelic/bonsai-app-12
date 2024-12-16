@@ -174,7 +174,7 @@ class NotificationService {
             const debugMessage = `${schedule.message}\n\n` + 
               `Debug Info:\n` +
               `Trigger Details:\n` +
-              `Trigger Stack:\n${triggerStack}\n\n` +
+              `- Time: ${triggerTime}\n` +
               `- Base Date Source: ${baseDateSource}\n` +
               `- Intervals Added: ${intervalsAdded}\n` +
               `Timing Info:\n` +
@@ -188,7 +188,7 @@ class NotificationService {
               `- Notification Time: ${notificationTime?.hours ?? 9}:${(notificationTime?.minutes ?? 0).toString().padStart(2, '0')}\n` +
               `- Tree ID: ${treeId}\n` +
               `- Maintenance Type: ${type}\n\n` +
-              `- Time: ${triggerTime}`;
+              `Trigger Stack:\n${triggerStack}`;
       
             await this.serviceWorkerRegistration.showNotification(`Bonsai Maintenance: ${treeName}`, {
               body: debugMessage,
