@@ -94,36 +94,33 @@ class NotificationService {
             permissionState: Notification.permission
         });
 
-        // Try a basic notification first
-        try {
-            console.log('B. Trying basic notification first');
-            new Notification(title, {
-                ...options,
-                icon: '/bonsai-icon.png',
-                requireInteraction: true,
-                silent: false,
-                vibrate: [200, 100, 200]
-            });
-            console.log('C. Basic notification sent');
+        if (!this.serviceWorkerRegistration?.active) {
+            console.log('B. No active service worker, maintenance actions will not be available');
+            // For non-maintenance notifications only
+            if (!options.actions) {
+                new Notification(title, {
+                    ...options,
+                    icon: '/bonsai-icon.png',
+                    requireInteraction: true,
+                    silent: false
+                });
+                console.log('C. Basic notification sent');
+            } else {
+                throw new Error('Service worker required for maintenance notifications');
+            }
             return;
-        } catch (basicError) {
-            console.log('D. Basic notification failed:', basicError);
         }
 
-        // Fall back to service worker if basic fails
-        if (this.serviceWorkerRegistration?.active) {
-            console.log('E. Falling back to service worker notification');
-            await this.serviceWorkerRegistration.showNotification(title, {
-                ...options,
-                icon: '/bonsai-icon.png',
-                requireInteraction: true,
-                silent: false,
-                vibrate: [200, 100, 200]
-            });
-            console.log('F. Service worker notification sent');
-        } else {
-            throw new Error('No notification methods available');
-        }
+        // Use service worker notification to support actions
+        console.log('D. Using service worker notification');
+        await this.serviceWorkerRegistration.showNotification(title, {
+            ...options,
+            icon: '/bonsai-icon.png',
+            requireInteraction: true,
+            silent: false,
+            vibrate: [200, 100, 200]
+        });
+        console.log('E. Service worker notification sent with actions');
     } catch (error) {
         console.error('Failed to show notification:', error);
         throw error;
