@@ -173,7 +173,7 @@ export function LandingPage() {
     <div className="h-screen flex flex-col overflow-hidden bg-stone-100 dark:bg-stone-900">
       <div className="relative flex-1 min-h-0">
         <img 
-          src="https://images.unsplash.com/photo-1512428813834-c702c7702b78?w=1800"
+          src="public/bonsai-background.jpg?w=1800"
           alt="Beautiful bonsai tree"
           className="absolute inset-0 w-full h-full object-cover object-center"
         />
