@@ -24,8 +24,10 @@ class NotificationService {
         
         if (existingRegistration) {
           this.serviceWorkerRegistration = existingRegistration;
+          debug.info('Using existing Service Worker registration');
         } else {
           this.serviceWorkerRegistration = await navigator.serviceWorker.register('/notification-worker.js');
+          debug.info('New Service Worker registered');
         }
   
         await navigator.serviceWorker.ready;
@@ -66,31 +68,25 @@ class NotificationService {
     }
   }
 
-  private async showNotification(title: string, options: NotificationOptions = {}): Promise<void> {
+  private async showSystemNotification(title: string, options: NotificationOptions = {}): Promise<void> {
     try {
-      // Try service worker first
       if (this.serviceWorkerRegistration) {
         await this.serviceWorkerRegistration.showNotification(title, {
           ...options,
-          requireInteraction: true,
-          silent: false
+          icon: '/bonsai-icon.png',
+          requireInteraction: true
         });
         return;
       }
 
-      // Fallback to basic notification
+      // Fallback to regular notification if service worker isn't available
       new Notification(title, {
         ...options,
-        requireInteraction: true
+        icon: '/bonsai-icon.png'
       });
     } catch (error) {
       debug.error('Failed to show notification:', error);
-      // Try basic notification as last resort
-      try {
-        new Notification(title, options);
-      } catch (secondError) {
-        throw error; // Throw original error if both methods fail
-      }
+      throw error;
     }
   }
 
@@ -103,28 +99,17 @@ class NotificationService {
     notificationTime?: { hours: number; minutes: number }
   ): Promise<void> {
     try {
-      console.log('Starting notification schedule update:', {
-        treeId,
-        treeName,
-        type,
-        enabled,
-        lastPerformed,
-        notificationTime
-      });
-
       await this.ensureInitialized();
       
       const key = `${treeId}-${type}`;
 
       // Clear existing timer
       if (this.notificationTimers[key]) {
-        console.log('Clearing existing timer for:', key);
         clearTimeout(this.notificationTimers[key]);
         delete this.notificationTimers[key];
       }
 
       if (!enabled) {
-        console.log('Notifications disabled for:', key);
         return;
       }
 
@@ -146,6 +131,7 @@ class NotificationService {
         baseDate.setSeconds(0);
         baseDate.setMilliseconds(0);
         
+        // Move back one interval to ensure first notification isn't immediate
         baseDate.setTime(baseDate.getTime() - schedule.interval);
       }
 
@@ -161,37 +147,28 @@ class NotificationService {
         nextDate.setTime(nextDate.getTime() + schedule.interval);
       }
 
-      const timeUntilNotification = nextDate.getTime() - now.getTime();
+      // Calculate time until next notification
+      let timeUntilNotification = nextDate.getTime() - now.getTime();
 
-      console.log('Notification timing calculated:', {
-        baseDate: baseDate.toISOString(),
-        nextDate: nextDate.toISOString(),
-        timeUntilNotification: `${Math.floor(timeUntilNotification / (1000 * 60 * 60))}h ${Math.floor((timeUntilNotification % (1000 * 60 * 60)) / (1000 * 60))}m`,
-        notificationTime
-      });
-
-      // Safeguard against immediate or past notifications
-      if (timeUntilNotification <= 1000) {
-        console.log('Adjusting schedule to prevent immediate notification');
-        nextDate = new Date(nextDate.getTime() + schedule.interval);
+      // If time until notification is less than 1 minute, add another interval
+      if (timeUntilNotification < 60000) {
+        nextDate.setTime(nextDate.getTime() + schedule.interval);
+        timeUntilNotification = nextDate.getTime() - now.getTime();
       }
 
       // Schedule notification
       this.notificationTimers[key] = setTimeout(async () => {
         try {
-          console.log('Timer fired for:', key);
-          const actualDelay = new Date().getTime() - now.getTime();
-          
-          // Prevent early firing
-          if (actualDelay < timeUntilNotification - 1000) {
-            console.log('Preventing early notification:', key);
-            return;
-          }
+          debug.info('Attempting to show notification for:', {
+            treeId,
+            treeName,
+            type,
+            scheduledFor: nextDate.toISOString(),
+            actualTime: new Date().toISOString()
+          });
 
-          console.log('Attempting to show notification for:', key);
-          await this.showNotification(`Bonsai Maintenance: ${treeName}`, {
+          await this.showSystemNotification(`Bonsai Maintenance: ${treeName}`, {
             body: schedule.message,
-            icon: '/bonsai-icon.png',
             tag: key,
             data: { treeId, type },
             actions: [
@@ -210,17 +187,16 @@ class NotificationService {
             { hours: nextDate.getHours(), minutes: nextDate.getMinutes() }
           );
         } catch (error) {
-          console.error('Failed to show notification:', error);
+          debug.error('Failed to show notification:', error);
         }
       }, timeUntilNotification);
 
-      console.log('Notification scheduled:', {
-        key,
+      debug.info(`Scheduled ${type} notification for ${treeName}`, {
         nextDate: nextDate.toISOString(),
         timeUntil: `${Math.floor(timeUntilNotification / (1000 * 60 * 60))}h ${Math.floor((timeUntilNotification % (1000 * 60 * 60)) / (1000 * 60))}m`
       });
     } catch (error) {
-      console.error('Error updating maintenance schedule:', error);
+      debug.error('Error updating maintenance schedule:', error);
       throw error;
     }
   }
@@ -236,12 +212,10 @@ class NotificationService {
         }
       }
 
-      await this.showNotification('Bonsai Care Test Notification', {
+      await this.showSystemNotification('Bonsai Care Test Notification', {
         body: 'If you see this, notifications are working correctly!',
-        icon: '/bonsai-icon.png',
         tag: 'test',
-        requireInteraction: true,
-        data: { test: true }
+        requireInteraction: true
       });
     } catch (error) {
       debug.error('Test notification failed:', error);
