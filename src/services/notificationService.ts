@@ -244,6 +244,7 @@ async updateMaintenanceSchedule(
   }
 }
 
+
   async testNotification(): Promise<void> {
     try {
       await this.ensureInitialized();
