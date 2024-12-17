@@ -70,27 +70,9 @@ export const useBonsaiStore = create<BonsaiStore>((set, get) => {
           set({ trees, loading: false, offline: false });
           logAnalyticsEvent('trees_sync_success');
 
-          // Initialize notification service
+          // Initialize notification service but don't reschedule
           try {
             await notificationService.init();
-            
-            // Update notification schedules for all trees
-            trees.forEach(tree => {
-              Object.entries(tree.notifications).forEach(([type, enabled]) => {
-                if (enabled) {
-                  notificationService.updateMaintenanceSchedule(
-                    tree.id,
-                    tree.name,
-                    type as MaintenanceType,
-                    enabled,
-                    tree.lastMaintenance?.[type],
-                    tree.notificationSettings
-                  ).catch(error => {
-                    debug.error('Failed to update notification schedule:', error);
-                  });
-                }
-              });
-            });
           } catch (error) {
             debug.error('Failed to initialize notification service:', error);
           }
@@ -180,7 +162,6 @@ export const useBonsaiStore = create<BonsaiStore>((set, get) => {
           throw new Error('Free tier is limited to 3 trees. Please upgrade to add more trees to your collection.');
         }
 
-        // Preserve user's notification settings
         const newTree = {
           ...tree,
           maintenanceLogs: [],
@@ -241,7 +222,7 @@ export const useBonsaiStore = create<BonsaiStore>((set, get) => {
         await updateDoc(treeRef, updates);
         await waitForPendingWrites(db);
 
-        // Update notification schedule if enabled
+        // Only reschedule the specific maintenance type that was completed
         if (tree.notifications[log.type as keyof typeof tree.notifications]) {
           await notificationService.updateMaintenanceSchedule(
             tree.id,
@@ -285,9 +266,9 @@ export const useBonsaiStore = create<BonsaiStore>((set, get) => {
         await updateDoc(treeRef, updates);
         await waitForPendingWrites(db);
 
-        // Update notification settings if they've changed
-        if (updates.notifications) {
-          const notificationChanges = Object.entries(updates.notifications).filter(
+        // Only update notifications if notification settings changed
+        if (updates.notifications || updates.notificationSettings) {
+          const notificationChanges = Object.entries(updates.notifications || tree.notifications).filter(
             ([type, enabled]) => enabled !== tree.notifications[type as keyof typeof tree.notifications]
           );
 
@@ -321,6 +302,27 @@ export const useBonsaiStore = create<BonsaiStore>((set, get) => {
     deleteTree: async (id) => {
       try {
         set({ loading: true, error: null });
+        
+        // Get the tree before deleting to access its notification settings
+        const tree = get().trees.find(t => t.id === id);
+        if (tree) {
+          // Disable all notifications for this tree
+          const enabledTypes = Object.entries(tree.notifications)
+            .filter(([_, enabled]) => enabled)
+            .map(([type]) => type as MaintenanceType);
+
+          for (const type of enabledTypes) {
+            await notificationService.updateMaintenanceSchedule(
+              id,
+              tree.name,
+              type,
+              false,
+              undefined,
+              tree.notificationSettings
+            );
+          }
+        }
+
         await deleteDoc(doc(db, 'trees', id));
         await waitForPendingWrites(db);
         set({ loading: false, error: null, offline: false });
