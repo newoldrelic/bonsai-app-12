@@ -118,7 +118,11 @@ class NotificationService {
             icon: '/bonsai-icon.png',
             requireInteraction: true,
             silent: false,
-            vibrate: [200, 100, 200]
+            vibrate: [200, 100, 200],
+            priority: "high",
+            timestamp: Date.now(),
+            renotify: true,
+            tag: options.tag || 'default-tag'
         });
         console.log('E. Service worker notification sent with actions');
     } catch (error) {
