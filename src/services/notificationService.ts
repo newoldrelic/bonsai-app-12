@@ -103,17 +103,28 @@ class NotificationService {
     notificationTime?: { hours: number; minutes: number }
   ): Promise<void> {
     try {
+      console.log('Starting notification schedule update:', {
+        treeId,
+        treeName,
+        type,
+        enabled,
+        lastPerformed,
+        notificationTime
+      });
+
       await this.ensureInitialized();
       
       const key = `${treeId}-${type}`;
 
       // Clear existing timer
       if (this.notificationTimers[key]) {
+        console.log('Clearing existing timer for:', key);
         clearTimeout(this.notificationTimers[key]);
         delete this.notificationTimers[key];
       }
 
       if (!enabled) {
+        console.log('Notifications disabled for:', key);
         return;
       }
 
@@ -152,21 +163,32 @@ class NotificationService {
 
       const timeUntilNotification = nextDate.getTime() - now.getTime();
 
+      console.log('Notification timing calculated:', {
+        baseDate: baseDate.toISOString(),
+        nextDate: nextDate.toISOString(),
+        timeUntilNotification: `${Math.floor(timeUntilNotification / (1000 * 60 * 60))}h ${Math.floor((timeUntilNotification % (1000 * 60 * 60)) / (1000 * 60))}m`,
+        notificationTime
+      });
+
       // Safeguard against immediate or past notifications
       if (timeUntilNotification <= 1000) {
+        console.log('Adjusting schedule to prevent immediate notification');
         nextDate = new Date(nextDate.getTime() + schedule.interval);
       }
 
       // Schedule notification
       this.notificationTimers[key] = setTimeout(async () => {
         try {
+          console.log('Timer fired for:', key);
           const actualDelay = new Date().getTime() - now.getTime();
           
           // Prevent early firing
           if (actualDelay < timeUntilNotification - 1000) {
+            console.log('Preventing early notification:', key);
             return;
           }
 
+          console.log('Attempting to show notification for:', key);
           await this.showNotification(`Bonsai Maintenance: ${treeName}`, {
             body: schedule.message,
             icon: '/bonsai-icon.png',
@@ -179,7 +201,7 @@ class NotificationService {
           });
 
           // Schedule next notification
-          this.updateMaintenanceSchedule(
+          await this.updateMaintenanceSchedule(
             treeId, 
             treeName, 
             type, 
@@ -188,11 +210,17 @@ class NotificationService {
             { hours: nextDate.getHours(), minutes: nextDate.getMinutes() }
           );
         } catch (error) {
-          debug.error('Failed to show notification:', error);
+          console.error('Failed to show notification:', error);
         }
       }, timeUntilNotification);
+
+      console.log('Notification scheduled:', {
+        key,
+        nextDate: nextDate.toISOString(),
+        timeUntil: `${Math.floor(timeUntilNotification / (1000 * 60 * 60))}h ${Math.floor((timeUntilNotification % (1000 * 60 * 60)) / (1000 * 60))}m`
+      });
     } catch (error) {
-      debug.error('Error updating maintenance schedule:', error);
+      console.error('Error updating maintenance schedule:', error);
       throw error;
     }
   }
