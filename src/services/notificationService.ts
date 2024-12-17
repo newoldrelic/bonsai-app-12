@@ -94,40 +94,39 @@ class NotificationService {
             permissionState: Notification.permission
         });
         
+        const notificationOptions = {
+            ...options,
+            icon: '/bonsai-icon.png',
+            badge: '/bonsai-icon.png',
+            requireInteraction: true,
+            renotify: true,
+            tag: options.tag || 'default',
+            silent: false,
+            vibrate: [200, 100, 200],
+            timestamp: Date.now()
+        };
+
         // Try service worker first
         if (this.serviceWorkerRegistration?.active) {
             console.log('B. Trying service worker notification');
             try {
-                await this.serviceWorkerRegistration.showNotification(title, {
-                    ...options,
-                    icon: '/bonsai-icon.png',
-                    requireInteraction: true,
-                    silent: false
-                });
+                await this.serviceWorkerRegistration.showNotification(title, notificationOptions);
                 console.log('C. Service worker notification sent');
             } catch (swError) {
-                console.log('D. Service worker notification failed, falling back to basic', swError);
-                // Try basic notification as fallback
-                new Notification(title, {
-                    ...options,
-                    icon: '/bonsai-icon.png'
-                });
+                console.log('D. Service worker notification failed, trying basic', swError);
+                new Notification(title, notificationOptions);
                 console.log('E. Basic notification sent as fallback');
             }
         } else {
-            // If no active service worker, use basic notification
             console.log('F. No active service worker, using basic notification');
-            new Notification(title, {
-                ...options,
-                icon: '/bonsai-icon.png'
-            });
+            new Notification(title, notificationOptions);
             console.log('G. Basic notification sent');
         }
     } catch (error) {
         console.error('Failed to show notification:', error);
         throw error;
     }
-  }
+}
 
   async updateMaintenanceSchedule(
     treeId: string,
