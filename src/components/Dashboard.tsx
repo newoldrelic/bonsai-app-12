@@ -118,9 +118,13 @@ export function Dashboard() {
   <AddTreeForm 
     onClose={() => setShowAddForm(false)}
     onSubmit={async (formData) => {
-      await addTree(formData, isSubscribed);  // Wait for result
-      if (!error) {
+      try {
+        const createdTree = await addTree(formData, isSubscribed);
         setShowAddForm(false);
+        return createdTree;  // Return the created tree data
+      } catch (error) {
+        // Error is already handled in the store
+        console.error('Error in form submission:', error);
       }
     }}
   />

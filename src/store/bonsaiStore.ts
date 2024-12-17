@@ -170,46 +170,40 @@ export const useBonsaiStore = create<BonsaiStore>((set, get) => {
         set({ error: 'Please sign in to add trees' });
         return;
       }
-
+    
       try {
         set({ loading: true, error: null });
         const currentTrees = get().trees;
-
+    
         if (!isSubscribed && currentTrees.length >= 3) {
           throw new Error('Free tier is limited to 3 trees. Please upgrade to add more trees to your collection.');
         }
-
+    
         const newTree = {
           ...tree,
           maintenanceLogs: [],
           userEmail: user.email,
           createdAt: serverTimestamp(),
           lastMaintenance: {},
-          notificationSettings: tree.notificationSettings || {  // Use passed settings or default
+          notificationSettings: tree.notificationSettings || {
             hours: 9,
             minutes: 0
           }
         };
-
+    
         const docRef = await addDoc(collection(db, 'trees'), newTree);
         await waitForPendingWrites(db);
-
-        // Initialize notification schedules
-        Object.entries(tree.notifications).forEach(([type, enabled]) => {
-          if (enabled) {
-            notificationService.updateMaintenanceSchedule(
-              docRef.id,
-              newTree.name,
-              type as MaintenanceType,
-              enabled
-            ).catch(error => {
-              debug.error('Failed to set up notification:', error);
-            });
-          }
-        });
-
+    
+        // Create tree data with ID to return
+        const createdTree = {
+          ...newTree,
+          id: docRef.id
+        };
+    
         set({ loading: false, error: null, offline: false });
         logAnalyticsEvent('tree_added');
+    
+        return createdTree;  // Return the created tree data
       } catch (error: any) {
         console.error('Error adding tree:', error);
         const isOffline = error.code === 'unavailable';
@@ -219,8 +213,9 @@ export const useBonsaiStore = create<BonsaiStore>((set, get) => {
           offline: isOffline
         });
         logAnalyticsEvent('tree_add_error', { error: error.code });
+        throw error;
       }
-    },
+    }
 
     addMaintenanceLog: async (treeId, log) => {
       try {
