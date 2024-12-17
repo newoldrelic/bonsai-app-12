@@ -1,15 +1,30 @@
+console.log('Service Worker: Loading');
+
 self.addEventListener('install', (event) => {
+  console.log('Service Worker: Installing');
   event.waitUntil(self.skipWaiting());
 });
 
 self.addEventListener('activate', (event) => {
+  console.log('Service Worker: Activating');
   event.waitUntil(self.clients.claim());
 });
 
+self.addEventListener('message', (event) => {
+  console.log('Service Worker: Received message', event.data);
+});
+
 self.addEventListener('notificationclick', (event) => {
+  console.log('Service Worker: Notification clicked', {
+    notification: event.notification,
+    action: event.action,
+    data: event.notification.data
+  });
+
   event.notification.close();
 
   if (event.action === 'snooze') {
+    console.log('Service Worker: Handling snooze action');
     // Snooze for 1 hour
     const snoozeTime = new Date().getTime() + (60 * 60 * 1000);
     self.registration.showNotification(event.notification.title, {
@@ -18,6 +33,7 @@ self.addEventListener('notificationclick', (event) => {
       data: event.notification.data
     });
   } else if (event.action === 'done') {
+    console.log('Service Worker: Handling done action');
     // Send message to client to mark task as done
     self.clients.matchAll().then((clients) => {
       clients.forEach((client) => {
@@ -29,6 +45,7 @@ self.addEventListener('notificationclick', (event) => {
       });
     });
   } else {
+    console.log('Service Worker: Opening app');
     // Open the app when clicking the notification
     event.waitUntil(
       self.clients.matchAll({ type: 'window' }).then((clientList) => {
@@ -42,15 +59,23 @@ self.addEventListener('notificationclick', (event) => {
 });
 
 self.addEventListener('notificationclose', (event) => {
-  // Log notification close for debugging
-  console.log('Notification closed:', event.notification.tag);
+  console.log('Service Worker: Notification closed', {
+    tag: event.notification.tag,
+    data: event.notification.data
+  });
 });
 
 self.addEventListener('push', (event) => {
-  if (!event.data) return;
+  console.log('Service Worker: Push received', event);
+  if (!event.data) {
+    console.log('Service Worker: Push event but no data');
+    return;
+  }
 
   try {
     const data = event.data.json();
+    console.log('Service Worker: Push data parsed', data);
+    
     event.waitUntil(
       self.registration.showNotification(data.title, {
         body: data.message,
@@ -65,6 +90,16 @@ self.addEventListener('push', (event) => {
       })
     );
   } catch (error) {
-    console.error('Error showing push notification:', error);
+    console.error('Service Worker: Error showing push notification:', error);
   }
 });
+
+// Add a specific event listener for handling notification requests
+self.addEventListener('notificationrequest', (event) => {
+  console.log('Service Worker: Notification request received', {
+    title: event.title,
+    options: event.options
+  });
+});
+
+console.log('Service Worker: Setup complete');
