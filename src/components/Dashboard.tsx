@@ -115,16 +115,16 @@ export function Dashboard() {
       </div>
 
       {showAddForm && (
-        <AddTreeForm 
-          onClose={() => setShowAddForm(false)}
-          onSubmit={(formData) => {
-            addTree(formData, isSubscribed);
-            if (!error) {
-              setShowAddForm(false);
-            }
-          }}
-        />
-      )}
+  <AddTreeForm 
+    onClose={() => setShowAddForm(false)}
+    onSubmit={async (formData) => {
+      await addTree(formData, isSubscribed);  // Wait for result
+      if (!error) {
+        setShowAddForm(false);
+      }
+    }}
+  />
+)}
 
       {treeBeingEdited && (
         <EditTreeForm

@@ -185,7 +185,7 @@ export const useBonsaiStore = create<BonsaiStore>((set, get) => {
           userEmail: user.email,
           createdAt: serverTimestamp(),
           lastMaintenance: {},
-          notificationSettings: {
+          notificationSettings: tree.notificationSettings || {  // Use passed settings or default
             hours: 9,
             minutes: 0
           }
