@@ -18,37 +18,6 @@ class NotificationService {
     }
   
     try {
-      if ('serviceWorker' in navigator) {
-        console.log('ServiceWorker API is available');
-        const existingRegistration = await navigator.serviceWorker.getRegistration('/notification-worker.js');
-        
-        if (existingRegistration) {
-          console.log('Service Worker Status:', {
-            active: !!existingRegistration.active,
-            activateState: existingRegistration.active?.state,
-            waiting: !!existingRegistration.waiting,
-            installing: !!existingRegistration.installing,
-            scope: existingRegistration.scope
-          });
-          this.serviceWorkerRegistration = existingRegistration;
-        } else {
-          console.log('Registering new Service Worker');
-          this.serviceWorkerRegistration = await navigator.serviceWorker.register('/notification-worker.js');
-          console.log('New Service Worker Status:', {
-            active: !!this.serviceWorkerRegistration.active,
-            activateState: this.serviceWorkerRegistration.active?.state,
-            waiting: !!this.serviceWorkerRegistration.waiting,
-            installing: !!this.serviceWorkerRegistration.installing,
-            scope: this.serviceWorkerRegistration.scope
-          });
-        }
-  
-        await navigator.serviceWorker.ready;
-        console.log('Service Worker is ready');
-      } else {
-        console.log('ServiceWorker API is not available');
-      }
-  
       this.initialized = true;
       this.initializationError = null;
     } catch (error) {
@@ -95,7 +64,7 @@ class NotificationService {
         // Create basic notification
         const notification = new Notification(title, {
             ...options,
-            icon: '/bonsai-icon.png',
+            icon: '/bonsai-icon.svg',
             requireInteraction: true,
             silent: false,
             tag: options.tag || 'default-tag'
@@ -104,7 +73,9 @@ class NotificationService {
         // Handle notification clicks
         notification.onclick = () => {
             console.log('Notification clicked:', options.data);
-            // You can add custom click handling here if needed
+            if (options.data?.type) {
+                console.log(`Maintenance task ${options.data.type} clicked`);
+            }
             notification.close();
         };
 
@@ -113,7 +84,7 @@ class NotificationService {
         console.error('Failed to show notification:', error);
         throw error;
     }
-}
+  }
 
   async updateMaintenanceSchedule(
     treeId: string,
@@ -228,14 +199,10 @@ class NotificationService {
             actualTime: new Date().toISOString()
           });
 
-          await this.showSystemNotification(`Bonsai Maintenance: ${treeName}`, {
+          await this.showSystemNotification(`${type} Maintenance: ${treeName}`, {
             body: schedule.message,
             tag: key,
-            data: { treeId, type },
-            actions: [
-              { action: 'done', title: 'Mark as Done' },
-              { action: 'snooze', title: 'Snooze 1hr' }
-            ]
+            data: { treeId, type }
           });
 
           console.log('15. Notification shown, scheduling next');
@@ -277,8 +244,7 @@ class NotificationService {
 
       await this.showSystemNotification('Bonsai Care Test Notification', {
         body: 'If you see this, notifications are working correctly!',
-        tag: 'test',
-        requireInteraction: true
+        tag: 'test'
       });
     } catch (error) {
       debug.error('Test notification failed:', error);
