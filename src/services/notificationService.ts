@@ -72,23 +72,34 @@ class NotificationService {
     try {
         console.log('A. Attempting to show notification', { title, options });
         
+        // Try service worker first
         if (this.serviceWorkerRegistration) {
-            console.log('B. Using service worker notification');
-            await this.serviceWorkerRegistration.showNotification(title, {
-                ...options,
-                icon: '/bonsai-icon.png',
-                requireInteraction: true
-            });
-            console.log('C. Service worker notification sent');
+            console.log('B. Trying service worker notification');
+            try {
+                await this.serviceWorkerRegistration.showNotification(title, {
+                    ...options,
+                    icon: '/bonsai-icon.png',
+                    requireInteraction: true
+                });
+                console.log('C. Service worker notification sent');
+            } catch (swError) {
+                console.log('D. Service worker notification failed, falling back to basic notification', swError);
+                new Notification(title, {
+                    ...options,
+                    icon: '/bonsai-icon.png'
+                });
+                console.log('E. Basic notification sent as fallback');
+            }
             return;
         }
 
-        console.log('D. Using regular notification');
+        // If no service worker, use basic notification
+        console.log('F. No service worker, using basic notification');
         new Notification(title, {
             ...options,
             icon: '/bonsai-icon.png'
         });
-        console.log('E. Regular notification sent');
+        console.log('G. Basic notification sent');
     } catch (error) {
         console.error('Failed to show notification:', error);
         throw error;
