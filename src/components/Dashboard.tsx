@@ -115,29 +115,34 @@ export function Dashboard() {
       </div>
 
       {showAddForm && (
-  <AddTreeForm 
-    onClose={() => setShowAddForm(false)}
-    onSubmit={async (formData) => {
-      try {
-        const createdTree = await addTree(formData, isSubscribed);
-        setShowAddForm(false);
-        return createdTree;  // Return the created tree data
-      } catch (error) {
-        // Error is already handled in the store
-        console.error('Error in form submission:', error);
-      }
-    }}
-  />
-)}
+        <AddTreeForm 
+          onClose={() => setShowAddForm(false)}
+          onSubmit={async (formData) => {
+            try {
+              const createdTree = await addTree(formData, isSubscribed);
+              if (!error) {
+                setShowAddForm(false);
+              }
+              return createdTree;
+            } catch (err) {
+              console.error('Error adding tree:', err);
+            }
+          }}
+        />
+      )}
 
       {treeBeingEdited && (
         <EditTreeForm
           tree={treeBeingEdited}
           onClose={() => setEditingTree(null)}
-          onSubmit={(id, updates) => {
-            updateTree(id, updates);
-            if (!error) {
-              setEditingTree(null);
+          onSubmit={async (id, updates) => {
+            try {
+              await updateTree(id, updates);
+              if (!error) {
+                setEditingTree(null);
+              }
+            } catch (err) {
+              console.error('Error updating tree:', err);
             }
           }}
           onDelete={handleDeleteTree}
