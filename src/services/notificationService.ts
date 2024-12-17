@@ -99,31 +99,46 @@ class NotificationService {
     notificationTime?: { hours: number; minutes: number }
   ): Promise<void> {
     try {
+      console.log('1. Starting maintenance schedule update', {
+        treeId,
+        treeName,
+        type,
+        enabled,
+        lastPerformed,
+        notificationTime
+      });
+
       await this.ensureInitialized();
       
       const key = `${treeId}-${type}`;
+      console.log('2. After initialization', { key });
 
       // Clear existing timer
       if (this.notificationTimers[key]) {
         clearTimeout(this.notificationTimers[key]);
         delete this.notificationTimers[key];
+        console.log('3. Cleared existing timer', { key });
       }
 
       if (!enabled) {
+        console.log('4. Notifications not enabled, returning');
         return;
       }
 
+      console.log('5. Checking notification permission');
       if (Notification.permission !== 'granted') {
         throw new Error('Notification permission required');
       }
 
       const schedule = MAINTENANCE_SCHEDULES[type];
       const now = new Date();
+      console.log('6. Starting date calculations', { now, schedule });
       
       // Set up initial date calculations
       let baseDate;
       if (lastPerformed) {
         baseDate = new Date(lastPerformed);
+        console.log('7a. Using last performed date as base', { baseDate });
       } else {
         baseDate = new Date();
         baseDate.setHours(notificationTime?.hours ?? 9);
@@ -133,6 +148,7 @@ class NotificationService {
         
         // Move back one interval to ensure first notification isn't immediate
         baseDate.setTime(baseDate.getTime() - schedule.interval);
+        console.log('7b. Created default base date', { baseDate });
       }
 
       // Calculate next notification time
@@ -141,25 +157,38 @@ class NotificationService {
       nextDate.setMinutes(notificationTime?.minutes ?? 0);
       nextDate.setSeconds(0);
       nextDate.setMilliseconds(0);
+      console.log('8. Initial next date calculated', { nextDate });
 
       // If next date is in the past, add intervals until we reach a future time
       while (nextDate <= now) {
         nextDate.setTime(nextDate.getTime() + schedule.interval);
+        console.log('9. Added interval to reach future date', { nextDate });
       }
 
       // Calculate time until next notification
       let timeUntilNotification = nextDate.getTime() - now.getTime();
+      console.log('10. Time until notification calculated', { 
+        timeUntilNotification,
+        hours: Math.floor(timeUntilNotification / (1000 * 60 * 60)),
+        minutes: Math.floor((timeUntilNotification % (1000 * 60 * 60)) / (1000 * 60))
+      });
 
       // If time until notification is less than 1 minute, add another interval
       if (timeUntilNotification < 60000) {
+        console.log('11. Time too short, adding another interval');
         nextDate.setTime(nextDate.getTime() + schedule.interval);
         timeUntilNotification = nextDate.getTime() - now.getTime();
+        console.log('12. Updated timing after interval addition', {
+          nextDate,
+          timeUntilNotification
+        });
       }
 
       // Schedule notification
+      console.log('13. Setting up notification timer');
       this.notificationTimers[key] = setTimeout(async () => {
         try {
-          debug.info('Attempting to show notification for:', {
+          console.log('14. Timer fired, showing notification', {
             treeId,
             treeName,
             type,
@@ -177,6 +206,7 @@ class NotificationService {
             ]
           });
 
+          console.log('15. Notification shown, scheduling next');
           // Schedule next notification
           await this.updateMaintenanceSchedule(
             treeId, 
@@ -187,16 +217,17 @@ class NotificationService {
             { hours: nextDate.getHours(), minutes: nextDate.getMinutes() }
           );
         } catch (error) {
-          debug.error('Failed to show notification:', error);
+          console.error('Timer callback error:', error);
         }
       }, timeUntilNotification);
 
-      debug.info(`Scheduled ${type} notification for ${treeName}`, {
+      console.log('16. Schedule complete', {
+        key,
         nextDate: nextDate.toISOString(),
         timeUntil: `${Math.floor(timeUntilNotification / (1000 * 60 * 60))}h ${Math.floor((timeUntilNotification % (1000 * 60 * 60)) / (1000 * 60))}m`
       });
     } catch (error) {
-      debug.error('Error updating maintenance schedule:', error);
+      console.error('Schedule update error:', error);
       throw error;
     }
   }
