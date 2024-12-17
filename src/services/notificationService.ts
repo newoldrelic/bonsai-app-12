@@ -93,34 +93,36 @@ class NotificationService {
             serviceWorkerState: this.serviceWorkerRegistration?.active?.state,
             permissionState: Notification.permission
         });
-        
-        const notificationOptions = {
-            ...options,
-            icon: '/bonsai-icon.png',
-            badge: '/bonsai-icon.png',
-            requireInteraction: true,
-            renotify: true,
-            tag: options.tag || 'default',
-            silent: false,
-            vibrate: [200, 100, 200],
-            timestamp: Date.now()
-        };
 
-        // Try service worker first
+        // Try a basic notification first
+        try {
+            console.log('B. Trying basic notification first');
+            new Notification(title, {
+                ...options,
+                icon: '/bonsai-icon.png',
+                requireInteraction: true,
+                silent: false,
+                vibrate: [200, 100, 200]
+            });
+            console.log('C. Basic notification sent');
+            return;
+        } catch (basicError) {
+            console.log('D. Basic notification failed:', basicError);
+        }
+
+        // Fall back to service worker if basic fails
         if (this.serviceWorkerRegistration?.active) {
-            console.log('B. Trying service worker notification');
-            try {
-                await this.serviceWorkerRegistration.showNotification(title, notificationOptions);
-                console.log('C. Service worker notification sent');
-            } catch (swError) {
-                console.log('D. Service worker notification failed, trying basic', swError);
-                new Notification(title, notificationOptions);
-                console.log('E. Basic notification sent as fallback');
-            }
+            console.log('E. Falling back to service worker notification');
+            await this.serviceWorkerRegistration.showNotification(title, {
+                ...options,
+                icon: '/bonsai-icon.png',
+                requireInteraction: true,
+                silent: false,
+                vibrate: [200, 100, 200]
+            });
+            console.log('F. Service worker notification sent');
         } else {
-            console.log('F. No active service worker, using basic notification');
-            new Notification(title, notificationOptions);
-            console.log('G. Basic notification sent');
+            throw new Error('No notification methods available');
         }
     } catch (error) {
         console.error('Failed to show notification:', error);
