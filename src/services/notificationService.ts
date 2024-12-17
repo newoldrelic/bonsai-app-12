@@ -70,25 +70,30 @@ class NotificationService {
 
   private async showSystemNotification(title: string, options: NotificationOptions = {}): Promise<void> {
     try {
-      if (this.serviceWorkerRegistration) {
-        await this.serviceWorkerRegistration.showNotification(title, {
-          ...options,
-          icon: '/bonsai-icon.png',
-          requireInteraction: true
-        });
-        return;
-      }
+        console.log('A. Attempting to show notification', { title, options });
+        
+        if (this.serviceWorkerRegistration) {
+            console.log('B. Using service worker notification');
+            await this.serviceWorkerRegistration.showNotification(title, {
+                ...options,
+                icon: '/bonsai-icon.png',
+                requireInteraction: true
+            });
+            console.log('C. Service worker notification sent');
+            return;
+        }
 
-      // Fallback to regular notification if service worker isn't available
-      new Notification(title, {
-        ...options,
-        icon: '/bonsai-icon.png'
-      });
+        console.log('D. Using regular notification');
+        new Notification(title, {
+            ...options,
+            icon: '/bonsai-icon.png'
+        });
+        console.log('E. Regular notification sent');
     } catch (error) {
-      debug.error('Failed to show notification:', error);
-      throw error;
+        console.error('Failed to show notification:', error);
+        throw error;
     }
-  }
+}
 
   async updateMaintenanceSchedule(
     treeId: string,
