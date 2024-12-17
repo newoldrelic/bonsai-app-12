@@ -89,42 +89,26 @@ class NotificationService {
         console.log('A. Attempting to show notification', { 
             title, 
             options,
-            serviceWorkerAvailable: !!this.serviceWorkerRegistration,
-            serviceWorkerState: this.serviceWorkerRegistration?.active?.state,
             permissionState: Notification.permission
         });
 
-        if (!this.serviceWorkerRegistration?.active) {
-            console.log('B. No active service worker, maintenance actions will not be available');
-            // For non-maintenance notifications only
-            if (!options.actions) {
-                new Notification(title, {
-                    ...options,
-                    icon: '/bonsai-icon.png',
-                    requireInteraction: true,
-                    silent: false
-                });
-                console.log('C. Basic notification sent');
-            } else {
-                throw new Error('Service worker required for maintenance notifications');
-            }
-            return;
-        }
-
-        // Use service worker notification to support actions
-        console.log('D. Using service worker notification');
-        await this.serviceWorkerRegistration.showNotification(title, {
+        // Create basic notification
+        const notification = new Notification(title, {
             ...options,
             icon: '/bonsai-icon.png',
             requireInteraction: true,
             silent: false,
-            vibrate: [200, 100, 200],
-            priority: "high",
-            timestamp: Date.now(),
-            renotify: true,
             tag: options.tag || 'default-tag'
         });
-        console.log('E. Service worker notification sent with actions');
+
+        // Handle notification clicks
+        notification.onclick = () => {
+            console.log('Notification clicked:', options.data);
+            // You can add custom click handling here if needed
+            notification.close();
+        };
+
+        console.log('B. Basic notification sent');
     } catch (error) {
         console.error('Failed to show notification:', error);
         throw error;
