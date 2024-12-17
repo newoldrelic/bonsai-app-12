@@ -37,7 +37,7 @@ interface BonsaiStore {
   loading: boolean;
   error: string | null;
   offline: boolean;
-  addTree: (tree: Omit<BonsaiTree, 'id' | 'maintenanceLogs' | 'userEmail'>, isSubscribed: boolean) => Promise<void>;
+  addTree: (tree: Omit<BonsaiTree, 'id' | 'maintenanceLogs' | 'userEmail'>, isSubscribed: boolean) => Promise<BonsaiTree>;
   addMaintenanceLog: (treeId: string, log: Omit<MaintenanceLog, 'id'>) => Promise<void>;
   updateTree: (id: string, updates: Partial<BonsaiTree>) => Promise<void>;
   deleteTree: (id: string) => Promise<void>;
@@ -72,7 +72,7 @@ export const useBonsaiStore = create<BonsaiStore>((set, get) => {
 
           // Initialize notification service
           try {
-            await notificationService.init(userEmail);
+            await notificationService.init();
             
             // Update notification schedules for all trees
             trees.forEach(tree => {
@@ -83,7 +83,8 @@ export const useBonsaiStore = create<BonsaiStore>((set, get) => {
                     tree.name,
                     type as MaintenanceType,
                     enabled,
-                    tree.lastMaintenance?.[type]
+                    tree.lastMaintenance?.[type],
+                    tree.notificationSettings
                   ).catch(error => {
                     debug.error('Failed to update notification schedule:', error);
                   });
@@ -168,17 +169,18 @@ export const useBonsaiStore = create<BonsaiStore>((set, get) => {
       const user = auth.currentUser;
       if (!user?.email) {
         set({ error: 'Please sign in to add trees' });
-        return;
+        throw new Error('Not signed in');
       }
-    
+
       try {
         set({ loading: true, error: null });
         const currentTrees = get().trees;
-    
+
         if (!isSubscribed && currentTrees.length >= 3) {
           throw new Error('Free tier is limited to 3 trees. Please upgrade to add more trees to your collection.');
         }
-    
+
+        // Preserve user's notification settings
         const newTree = {
           ...tree,
           maintenanceLogs: [],
@@ -190,20 +192,20 @@ export const useBonsaiStore = create<BonsaiStore>((set, get) => {
             minutes: 0
           }
         };
-    
+
         const docRef = await addDoc(collection(db, 'trees'), newTree);
         await waitForPendingWrites(db);
-    
-        // Create tree data with ID to return
+
+        // Create the complete tree object with ID
         const createdTree = {
           ...newTree,
           id: docRef.id
-        };
-    
+        } as BonsaiTree;
+
         set({ loading: false, error: null, offline: false });
         logAnalyticsEvent('tree_added');
-    
-        return createdTree;  // Return the created tree data
+
+        return createdTree;
       } catch (error: any) {
         console.error('Error adding tree:', error);
         const isOffline = error.code === 'unavailable';
@@ -215,7 +217,7 @@ export const useBonsaiStore = create<BonsaiStore>((set, get) => {
         logAnalyticsEvent('tree_add_error', { error: error.code });
         throw error;
       }
-    }
+    },
 
     addMaintenanceLog: async (treeId, log) => {
       try {
@@ -246,7 +248,8 @@ export const useBonsaiStore = create<BonsaiStore>((set, get) => {
             tree.name,
             log.type as MaintenanceType,
             true,
-            log.date
+            log.date,
+            tree.notificationSettings
           );
         }
 
@@ -261,6 +264,7 @@ export const useBonsaiStore = create<BonsaiStore>((set, get) => {
           offline: isOffline
         });
         logAnalyticsEvent('maintenance_log_error', { error: error.code });
+        throw error;
       }
     },
 
@@ -293,7 +297,8 @@ export const useBonsaiStore = create<BonsaiStore>((set, get) => {
               updates.name || tree.name,
               type as MaintenanceType,
               enabled,
-              updates.lastMaintenance[type]
+              updates.lastMaintenance[type],
+              updates.notificationSettings || tree.notificationSettings
             );
           }
         }
@@ -309,6 +314,7 @@ export const useBonsaiStore = create<BonsaiStore>((set, get) => {
           offline: isOffline
         });
         logAnalyticsEvent('tree_update_error', { error: error.code });
+        throw error;
       }
     },
 
@@ -328,6 +334,7 @@ export const useBonsaiStore = create<BonsaiStore>((set, get) => {
           offline: isOffline
         });
         logAnalyticsEvent('tree_delete_error', { error: error.code });
+        throw error;
       }
     }
   };
