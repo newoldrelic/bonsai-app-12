@@ -24,10 +24,8 @@ class NotificationService {
         
         if (existingRegistration) {
           this.serviceWorkerRegistration = existingRegistration;
-          debug.info('Using existing Service Worker registration');
         } else {
           this.serviceWorkerRegistration = await navigator.serviceWorker.register('/notification-worker.js');
-          debug.info('New Service Worker registered');
         }
   
         await navigator.serviceWorker.ready;
@@ -37,7 +35,6 @@ class NotificationService {
       this.initializationError = null;
     } catch (error) {
       this.initializationError = error instanceof Error ? error : new Error('Unknown error');
-      debug.error('Failed to initialize notification service:', error);
       throw this.initializationError;
     }
   }
@@ -66,6 +63,34 @@ class NotificationService {
     } catch (error) {
       debug.error('Failed to request notification permission:', error);
       return false;
+    }
+  }
+
+  private async showNotification(title: string, options: NotificationOptions = {}): Promise<void> {
+    try {
+      // Try service worker first
+      if (this.serviceWorkerRegistration) {
+        await this.serviceWorkerRegistration.showNotification(title, {
+          ...options,
+          requireInteraction: true,
+          silent: false
+        });
+        return;
+      }
+
+      // Fallback to basic notification
+      new Notification(title, {
+        ...options,
+        requireInteraction: true
+      });
+    } catch (error) {
+      debug.error('Failed to show notification:', error);
+      // Try basic notification as last resort
+      try {
+        new Notification(title, options);
+      } catch (secondError) {
+        throw error; // Throw original error if both methods fail
+      }
     }
   }
 
@@ -110,7 +135,6 @@ class NotificationService {
         baseDate.setSeconds(0);
         baseDate.setMilliseconds(0);
         
-        // Move back one interval to ensure first notification isn't immediate
         baseDate.setTime(baseDate.getTime() - schedule.interval);
       }
 
@@ -129,7 +153,7 @@ class NotificationService {
       const timeUntilNotification = nextDate.getTime() - now.getTime();
 
       // Safeguard against immediate or past notifications
-      if (timeUntilNotification <= 1000) { // Less than 1 second
+      if (timeUntilNotification <= 1000) {
         nextDate = new Date(nextDate.getTime() + schedule.interval);
       }
 
@@ -143,25 +167,16 @@ class NotificationService {
             return;
           }
 
-          if (this.serviceWorkerRegistration) {
-            await this.serviceWorkerRegistration.showNotification(`Bonsai Maintenance: ${treeName}`, {
-              body: schedule.message,
-              icon: '/bonsai-icon.png',
-              tag: key,
-              requireInteraction: true,
-              data: { treeId, type },
-              actions: [
-                { action: 'done', title: 'Mark as Done' },
-                { action: 'snooze', title: 'Snooze 1hr' }
-              ]
-            });
-          } else {
-            new Notification(`Bonsai Maintenance: ${treeName}`, {
-              body: schedule.message,
-              icon: '/bonsai-icon.png',
-              tag: key
-            });
-          }
+          await this.showNotification(`Bonsai Maintenance: ${treeName}`, {
+            body: schedule.message,
+            icon: '/bonsai-icon.png',
+            tag: key,
+            data: { treeId, type },
+            actions: [
+              { action: 'done', title: 'Mark as Done' },
+              { action: 'snooze', title: 'Snooze 1hr' }
+            ]
+          });
 
           // Schedule next notification
           this.updateMaintenanceSchedule(
@@ -193,20 +208,13 @@ class NotificationService {
         }
       }
 
-      if (this.serviceWorkerRegistration) {
-        await this.serviceWorkerRegistration.showNotification('Bonsai Care Test Notification', {
-          body: 'If you see this, notifications are working correctly!',
-          icon: '/bonsai-icon.png',
-          tag: 'test',
-          requireInteraction: true,
-          data: { test: true }
-        });
-      } else {
-        new Notification('Bonsai Care Test Notification', {
-          body: 'If you see this, notifications are working correctly!',
-          icon: '/bonsai-icon.png'
-        });
-      }
+      await this.showNotification('Bonsai Care Test Notification', {
+        body: 'If you see this, notifications are working correctly!',
+        icon: '/bonsai-icon.png',
+        tag: 'test',
+        requireInteraction: true,
+        data: { test: true }
+      });
     } catch (error) {
       debug.error('Test notification failed:', error);
       throw error;
